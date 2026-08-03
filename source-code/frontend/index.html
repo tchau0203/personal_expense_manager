@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="vi">
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,178 +8,331 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- Toast Notification -->
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-icon">💰</div>
-      <span class="logo-text">ExpenseManager</span>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" id="nav-dashboard">
-        <span class="nav-icon">📊</span>
-        <span>Tổng quan</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-add">
-        <span class="nav-icon">➕</span>
-        <span>Thêm chi tiêu</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-list">
-        <span class="nav-icon">📋</span>
-        <span>Danh sách</span>
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="sidebar-user">
-        <div class="user-avatar">U</div>
-        <div class="user-info">
-          <span class="user-name">Người dùng</span>
-          <span class="user-role">Cá nhân</span>
-        </div>
+  <!-- ══════════════════════════════════════════
+       AUTH PAGES (Login / Register)
+  ══════════════════════════════════════════ -->
+  <div id="auth-page" class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-icon">💰</div>
+        <h1 class="auth-brand">ExpenseManager</h1>
+        <p class="auth-tagline">Kiểm soát tài chính thông minh</p>
+      </div>
+
+      <!-- Login Form -->
+      <div id="login-form-wrap">
+        <h2 class="auth-title">Đăng nhập</h2>
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label for="login-username">Tên đăng nhập</label>
+            <input type="text" id="login-username" placeholder="username hoặc email" autocomplete="username" />
+            <span class="field-error" id="err-login-username"></span>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Mật khẩu</label>
+            <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+            <span class="field-error" id="err-login-password"></span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-login">
+            <span class="btn-text">Đăng nhập</span>
+            <span class="btn-loader" style="display:none">⏳</span>
+          </button>
+        </form>
+        <p class="auth-switch">Chưa có tài khoản? <a href="#" id="go-register">Đăng ký ngay</a></p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-form-wrap" style="display:none">
+        <h2 class="auth-title">Tạo tài khoản</h2>
+        <form id="register-form" novalidate>
+          <div class="form-group">
+            <label for="reg-username">Tên đăng nhập <span class="required">*</span></label>
+            <input type="text" id="reg-username" placeholder="VD: nguyenvana" autocomplete="username" />
+            <span class="field-error" id="err-reg-username"></span>
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email <span class="required">*</span></label>
+            <input type="email" id="reg-email" placeholder="email@example.com" autocomplete="email" />
+            <span class="field-error" id="err-reg-email"></span>
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Mật khẩu <span class="required">*</span></label>
+            <input type="password" id="reg-password" placeholder="Tối thiểu 6 ký tự" autocomplete="new-password" />
+            <span class="field-error" id="err-reg-password"></span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-register">
+            <span class="btn-text">Tạo tài khoản</span>
+            <span class="btn-loader" style="display:none">⏳</span>
+          </button>
+        </form>
+        <p class="auth-switch">Đã có tài khoản? <a href="#" id="go-login">Đăng nhập</a></p>
       </div>
     </div>
-  </aside>
+  </div>
 
-  <!-- Main Content -->
-  <main class="main-content">
+  <!-- ══════════════════════════════════════════
+       MAIN APP (after login)
+  ══════════════════════════════════════════ -->
+  <div id="app" style="display:none">
 
-    <!-- Header -->
-    <header class="top-header">
-      <div class="header-left">
-        <h1 id="page-title">Tổng quan</h1>
-        <p class="header-subtitle" id="page-subtitle">Xin chào! Đây là tóm tắt chi tiêu của bạn.</p>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">💰</div>
+        <span class="logo-text">ExpenseManager</span>
       </div>
-      <div class="header-right">
-        <div class="header-date" id="header-date"></div>
-        <button class="btn-add-header" id="btn-open-add-modal">
-          <span>+</span> Thêm mới
-        </button>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" id="nav-dashboard">
+          <span class="nav-icon">📊</span><span>Tổng quan</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-analytics">
+          <span class="nav-icon">📈</span><span>Phân tích</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-budget">
+          <span class="nav-icon">💰</span><span>Ngân sách</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-add">
+          <span class="nav-icon">➕</span><span>Thêm chi tiêu</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-list">
+          <span class="nav-icon">📋</span><span>Danh sách</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-profile">
+          <span class="nav-icon">👤</span><span>Hồ sơ</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" id="sidebar-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="sidebar-username">Người dùng</span>
+            <span class="user-role">Cá nhân</span>
+          </div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Đăng xuất">⏻</button>
       </div>
-    </header>
+    </aside>
 
-    <!-- Dashboard Section -->
-    <section id="section-dashboard" class="section active">
+    <!-- Main Content -->
+    <main class="main-content">
 
-      <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div class="stat-card card-total">
-          <div class="stat-icon">💳</div>
-          <div class="stat-body">
-            <p class="stat-label">Tổng chi tiêu</p>
-            <h2 class="stat-value" id="stat-total">0 ₫</h2>
-            <p class="stat-sub">Toàn bộ thời gian</p>
-          </div>
+      <!-- Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <h1 id="page-title">Tổng quan</h1>
+          <p class="header-subtitle" id="page-subtitle">Xin chào! Đây là tóm tắt chi tiêu của bạn.</p>
         </div>
-        <div class="stat-card card-month">
-          <div class="stat-icon">📅</div>
-          <div class="stat-body">
-            <p class="stat-label">Tháng này</p>
-            <h2 class="stat-value" id="stat-month">0 ₫</h2>
-            <p class="stat-sub" id="stat-month-label">Tháng hiện tại</p>
-          </div>
+        <div class="header-right">
+          <div class="header-date" id="header-date"></div>
+          <button class="btn-theme" id="btn-theme" title="Đổi giao diện" aria-label="Toggle dark mode">🌙</button>
+          <button class="btn-add-header" id="btn-open-add-modal"><span>+</span> Thêm mới</button>
         </div>
-        <div class="stat-card card-count">
-          <div class="stat-icon">📝</div>
-          <div class="stat-body">
-            <p class="stat-label">Số giao dịch</p>
-            <h2 class="stat-value" id="stat-count">0</h2>
-            <p class="stat-sub">Tổng giao dịch</p>
-          </div>
-        </div>
-        <div class="stat-card card-avg">
-          <div class="stat-icon">📈</div>
-          <div class="stat-body">
-            <p class="stat-label">Trung bình / giao dịch</p>
-            <h2 class="stat-value" id="stat-avg">0 ₫</h2>
-            <p class="stat-sub">Trung bình chi tiêu</p>
-          </div>
-        </div>
-      </div>
+      </header>
 
-      <!-- Category Summary -->
-      <div class="dashboard-grid">
+      <!-- ── Dashboard Section ── -->
+      <section id="section-dashboard" class="section active">
+        <div class="stats-grid">
+          <div class="stat-card card-total">
+            <div class="stat-icon">💳</div>
+            <div class="stat-body">
+              <p class="stat-label">Tổng chi tiêu</p>
+              <h2 class="stat-value" id="stat-total">0 ₫</h2>
+              <p class="stat-sub">Toàn bộ thời gian</p>
+            </div>
+          </div>
+          <div class="stat-card card-month">
+            <div class="stat-icon">📅</div>
+            <div class="stat-body">
+              <p class="stat-label">Tháng này</p>
+              <h2 class="stat-value" id="stat-month">0 ₫</h2>
+              <p class="stat-sub" id="stat-month-label">Tháng hiện tại</p>
+            </div>
+          </div>
+          <div class="stat-card card-count">
+            <div class="stat-icon">📝</div>
+            <div class="stat-body">
+              <p class="stat-label">Số giao dịch</p>
+              <h2 class="stat-value" id="stat-count">0</h2>
+              <p class="stat-sub">Tổng giao dịch</p>
+            </div>
+          </div>
+          <div class="stat-card card-avg">
+            <div class="stat-icon">📈</div>
+            <div class="stat-body">
+              <p class="stat-label">Trung bình / giao dịch</p>
+              <h2 class="stat-value" id="stat-avg">0 ₫</h2>
+              <p class="stat-sub">Trung bình chi tiêu</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header"><h3>Chi tiêu theo danh mục</h3></div>
+            <div class="card-body" id="category-summary"><div class="empty-state small">Chưa có dữ liệu</div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Giao dịch gần đây</h3>
+              <a href="#" class="card-link" id="link-view-all">Xem tất cả →</a>
+            </div>
+            <div class="card-body" id="recent-list"><div class="empty-state small">Chưa có giao dịch nào</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Analytics Section ── -->
+      <section id="section-analytics" class="section">
+        <div class="analytics-filter-bar">
+          <span class="filter-label">Khoảng thời gian:</span>
+          <div class="time-filter-group">
+            <button class="time-btn active" data-range="month" id="tf-month">Tháng này</button>
+            <button class="time-btn" data-range="3months" id="tf-3months">3 tháng</button>
+            <button class="time-btn" data-range="year" id="tf-year">Năm nay</button>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <div class="card chart-card">
+            <div class="card-header"><h3>Tỷ lệ theo danh mục</h3></div>
+            <div class="card-body chart-body">
+              <canvas id="chart-pie"></canvas>
+            </div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header"><h3>Chi tiêu theo tháng</h3></div>
+            <div class="card-body chart-body">
+              <canvas id="chart-bar"></canvas>
+            </div>
+          </div>
+          <div class="card chart-card chart-full">
+            <div class="card-header"><h3>Xu hướng 30 ngày gần nhất</h3></div>
+            <div class="card-body chart-body">
+              <canvas id="chart-line"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Budget Section ── -->
+      <section id="section-budget" class="section">
+        <div class="budget-header-bar">
+          <div class="budget-month-selector">
+            <label for="budget-month-sel">Tháng:</label>
+            <select id="budget-month-sel" class="filter-select"></select>
+            <select id="budget-year-sel" class="filter-select"></select>
+          </div>
+          <button class="btn btn-primary" id="btn-open-budget-modal">+ Thêm ngân sách</button>
+        </div>
+        <div id="budget-list" class="budget-list">
+          <div class="empty-state">Chưa có ngân sách nào cho tháng này.</div>
+        </div>
+      </section>
+
+      <!-- ── Expense List Section ── -->
+      <section id="section-list" class="section">
         <div class="card">
           <div class="card-header">
-            <h3>Chi tiêu theo danh mục</h3>
+            <h3>Tất cả chi tiêu</h3>
+            <div class="list-controls">
+              <input type="text" id="search-input" placeholder="🔍 Tìm kiếm..." class="search-box" />
+              <select id="filter-category" class="filter-select">
+                <option value="">Tất cả danh mục</option>
+                <option value="Ăn uống">🍜 Ăn uống</option>
+                <option value="Đi lại">🚗 Đi lại</option>
+                <option value="Mua sắm">🛍️ Mua sắm</option>
+                <option value="Giải trí">🎮 Giải trí</option>
+                <option value="Y tế">💊 Y tế</option>
+                <option value="Giáo dục">📚 Giáo dục</option>
+                <option value="Tiền nhà">🏠 Tiền nhà</option>
+                <option value="Khác">📦 Khác</option>
+              </select>
+              <select id="sort-select" class="filter-select">
+                <option value="date-desc">Mới nhất</option>
+                <option value="date-asc">Cũ nhất</option>
+                <option value="amount-desc">Nhiều tiền nhất</option>
+                <option value="amount-asc">Ít tiền nhất</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" id="btn-export-csv">📥 CSV</button>
+              <button class="btn btn-ghost btn-sm" id="btn-export-pdf">📄 PDF</button>
+            </div>
           </div>
-          <div class="card-body" id="category-summary">
-            <div class="empty-state small">Chưa có dữ liệu</div>
-          </div>
-        </div>
-
-        <!-- Recent Transactions -->
-        <div class="card">
-          <div class="card-header">
-            <h3>Giao dịch gần đây</h3>
-            <a href="#" class="card-link" id="link-view-all">Xem tất cả →</a>
-          </div>
-          <div class="card-body" id="recent-list">
-            <div class="empty-state small">Chưa có giao dịch nào</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Expense List Section -->
-    <section id="section-list" class="section">
-      <div class="card">
-        <div class="card-header">
-          <h3>Tất cả chi tiêu</h3>
-          <div class="list-controls">
-            <input type="text" id="search-input" placeholder="🔍 Tìm kiếm..." class="search-box" />
-            <select id="filter-category" class="filter-select">
-              <option value="">Tất cả danh mục</option>
-              <option value="Ăn uống">🍜 Ăn uống</option>
-              <option value="Đi lại">🚗 Đi lại</option>
-              <option value="Mua sắm">🛍️ Mua sắm</option>
-              <option value="Giải trí">🎮 Giải trí</option>
-              <option value="Y tế">💊 Y tế</option>
-              <option value="Giáo dục">📚 Giáo dục</option>
-              <option value="Tiền nhà">🏠 Tiền nhà</option>
-              <option value="Khác">📦 Khác</option>
-            </select>
-            <select id="sort-select" class="filter-select">
-              <option value="date-desc">Mới nhất</option>
-              <option value="date-asc">Cũ nhất</option>
-              <option value="amount-desc">Nhiều tiền nhất</option>
-              <option value="amount-asc">Ít tiền nhất</option>
-            </select>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="expense-table-wrapper">
-            <table class="expense-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Mô tả</th>
-                  <th>Danh mục</th>
-                  <th>Ngày</th>
-                  <th>Số tiền</th>
-                  <th>Hành động</th>
-                </tr>
-              </thead>
-              <tbody id="expense-tbody">
-                <tr>
-                  <td colspan="6">
-                    <div class="empty-state">Chưa có khoản chi tiêu nào. Hãy thêm mới!</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card-body">
+            <div class="expense-table-wrapper">
+              <table class="expense-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Mô tả</th>
+                    <th>Danh mục</th>
+                    <th>Ngày</th>
+                    <th>Số tiền</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="expense-tbody">
+                  <tr><td colspan="6"><div class="empty-state">Chưa có khoản chi tiêu nào. Hãy thêm mới!</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Pagination -->
+            <div class="pagination" id="pagination"></div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-  </main>
+      <!-- ── Profile Section ── -->
+      <section id="section-profile" class="section">
+        <div class="profile-grid">
+          <div class="card profile-info-card">
+            <div class="card-header"><h3>Thông tin tài khoản</h3></div>
+            <div class="card-body profile-body">
+              <div class="profile-avatar-big" id="profile-avatar-big">U</div>
+              <div class="profile-field"><label>Tên đăng nhập</label><span id="profile-username">—</span></div>
+              <div class="profile-field"><label>Email</label><span id="profile-email">—</span></div>
+              <div class="profile-field"><label>Ngày tạo</label><span id="profile-created">—</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Đổi mật khẩu</h3></div>
+            <div class="card-body">
+              <form id="change-pw-form" novalidate>
+                <div class="form-group">
+                  <label for="old-password">Mật khẩu hiện tại</label>
+                  <input type="password" id="old-password" placeholder="••••••••" />
+                  <span class="field-error" id="err-old-pw"></span>
+                </div>
+                <div class="form-group">
+                  <label for="new-password">Mật khẩu mới</label>
+                  <input type="password" id="new-password" placeholder="Tối thiểu 6 ký tự" />
+                  <span class="field-error" id="err-new-pw"></span>
+                </div>
+                <div class="form-group">
+                  <label for="confirm-password">Xác nhận mật khẩu</label>
+                  <input type="password" id="confirm-password" placeholder="Nhập lại mật khẩu mới" />
+                  <span class="field-error" id="err-confirm-pw"></span>
+                </div>
+                <button type="submit" class="btn btn-primary" id="btn-change-pw">Cập nhật mật khẩu</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
 
-  <!-- Add Expense Modal -->
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       MODALS
+  ══════════════════════════════════════════ -->
+
+  <!-- Add / Edit Expense Modal -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal" id="modal-add" role="dialog" aria-labelledby="modal-title" aria-modal="true">
       <div class="modal-header">
@@ -187,6 +340,7 @@
         <button class="modal-close" id="modal-close" aria-label="Đóng">&times;</button>
       </div>
       <form id="expense-form" class="modal-body" novalidate>
+        <input type="hidden" id="edit-id" value="" />
         <div class="form-group">
           <label for="input-desc">Mô tả <span class="required">*</span></label>
           <input type="text" id="input-desc" name="description" placeholder="VD: Cà phê buổi sáng" maxlength="200" required />
@@ -219,6 +373,16 @@
           </select>
           <span class="field-error" id="err-category"></span>
         </div>
+        <div class="form-group form-check-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="input-recurring" name="is_recurring" />
+            <span>Chi tiêu định kỳ</span>
+          </label>
+          <select id="input-recurring-interval" class="filter-select" style="display:none">
+            <option value="monthly">Hàng tháng</option>
+            <option value="weekly">Hàng tuần</option>
+          </select>
+        </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="btn-cancel">Huỷ</button>
           <button type="submit" class="btn btn-primary" id="btn-submit">
@@ -230,12 +394,44 @@
     </div>
   </div>
 
+  <!-- Budget Modal -->
+  <div class="modal-overlay" id="budget-modal-overlay">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Thêm / cập nhật ngân sách</h2>
+        <button class="modal-close" id="budget-modal-close">&times;</button>
+      </div>
+      <form id="budget-form" class="modal-body" novalidate>
+        <div class="form-group">
+          <label for="budget-category">Danh mục</label>
+          <select id="budget-category" class="filter-select" style="width:100%">
+            <option value="Ăn uống">🍜 Ăn uống</option>
+            <option value="Đi lại">🚗 Đi lại</option>
+            <option value="Mua sắm">🛍️ Mua sắm</option>
+            <option value="Giải trí">🎮 Giải trí</option>
+            <option value="Y tế">💊 Y tế</option>
+            <option value="Giáo dục">📚 Giáo dục</option>
+            <option value="Tiền nhà">🏠 Tiền nhà</option>
+            <option value="Khác">📦 Khác</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="budget-amount">Ngân sách (₫)</label>
+          <input type="number" id="budget-amount" placeholder="VD: 2000000" min="1" />
+          <span class="field-error" id="err-budget-amount"></span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="budget-modal-cancel">Huỷ</button>
+          <button type="submit" class="btn btn-primary">Lưu ngân sách</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Confirm Delete Modal -->
   <div class="modal-overlay" id="confirm-overlay">
     <div class="modal modal-sm" id="modal-confirm" role="dialog" aria-modal="true">
-      <div class="modal-header">
-        <h2>Xác nhận xoá</h2>
-      </div>
+      <div class="modal-header"><h2>Xác nhận xoá</h2></div>
       <div class="modal-body">
         <p class="confirm-text">Bạn có chắc muốn xoá khoản chi tiêu này không? Hành động này không thể hoàn tác.</p>
       </div>
