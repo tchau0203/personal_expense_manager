@@ -1,69 +1,49 @@
 const express = require('express');
-const cors = require('cors');
-const { poolPromise } = require('../database/database');
-const path = require('path');
+const cors    = require('cors');
+const rateLimit = require('express-rate-limit');
+const path    = require('path');
 
-const app = express();
-const PORT = 3000;
-const memoryExpenses = [];
+require('dotenv').config();
 
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+// ── Middleware ────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
+
+// Rate limiting: max 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// ── API Routes ───────────────────────────────────────────────
+app.use('/api/auth',     require('./routes/auth.routes'));
+app.use('/api/expenses', require('./routes/expense.routes'));
+app.use('/api/budgets',  require('./routes/budget.routes'));
+
+// ── Static Frontend ──────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-app.get('/api/expenses', async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    if (pool) {
-      const result = await pool.query('SELECT * FROM expenses ORDER BY expense_date DESC');
-      return res.json(result.rows);
-    }
-
-    return res.json(memoryExpenses.slice().reverse());
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+// SPA fallback — phục vụ index.html cho mọi route không phải API
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  } else {
+    next();
   }
 });
 
-app.post('/api/expenses', async (req, res) => {
-  try {
-    const { description, amount, category, date } = req.body;
-    const pool = await poolPromise;
+// ── Start ────────────────────────────────────────────────────
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server đang chạy tại http://localhost:${PORT}`);
+  });
+}
 
-    if (pool) {
-      await pool.query(
-        'INSERT INTO expenses (description, amount, category, expense_date) VALUES ($1, $2, $3, $4)',
-        [description, amount, category, date]
-      );
-      return res.json({ success: true });
-    }
-
-    memoryExpenses.push({ id: Date.now(), description, amount, category, expense_date: date });
-    return res.json({ success: true });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete('/api/expenses/:id', async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    if (pool) {
-      await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id]);
-      return res.json({ success: true });
-    }
-
-    const id = Number(req.params.id);
-    const index = memoryExpenses.findIndex(item => item.id === id);
-    if (index >= 0) {
-      memoryExpenses.splice(index, 1);
-    }
-    return res.json({ success: true });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server đang chạy tại http://localhost:${PORT}`);
-});
+module.exports = app; // export for testing
