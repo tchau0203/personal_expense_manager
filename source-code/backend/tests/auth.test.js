@@ -41,8 +41,9 @@ describe('POST /api/auth/register', () => {
 
   it('should register successfully', async () => {
     __mockQuery
-      .mockResolvedValueOnce({ rows: [] })  // no existing user
-      .mockResolvedValueOnce({ rows: [{ id: 1, username: 'newuser', email: 'new@a.com' }] });
+      .mockResolvedValueOnce({ rows: [] })         // no existing user
+      .mockResolvedValueOnce({ rows: [{ id: 1, username: 'newuser', email: 'new@a.com' }] }) // INSERT user
+      .mockResolvedValueOnce({ rows: [] });          // audit log INSERT
 
     const res = await request(app).post('/api/auth/register')
       .send({ username: 'newuser', email: 'new@a.com', password: 'password123' });
@@ -69,9 +70,13 @@ describe('POST /api/auth/login', () => {
   });
 
   it('should return 401 for wrong password', async () => {
-    __mockQuery.mockResolvedValueOnce({
-      rows: [{ id: 1, username: 'user', email: 'u@a.com', password_hash: '$2b$10$hash' }]
-    });
+    __mockQuery
+      .mockResolvedValueOnce({                                        // SELECT user
+        rows: [{ id: 1, username: 'user', email: 'u@a.com', password_hash: '$2b$10$hash',
+                 failed_attempts: 0, locked_until: null }]
+      })
+      .mockResolvedValueOnce({ rows: [] })  // UPDATE failed_attempts
+      .mockResolvedValueOnce({ rows: [] }); // audit log INSERT
     bcrypt.compare.mockResolvedValueOnce(false);
 
     const res = await request(app).post('/api/auth/login')
@@ -80,9 +85,15 @@ describe('POST /api/auth/login', () => {
   });
 
   it('should login successfully', async () => {
-    __mockQuery.mockResolvedValueOnce({
-      rows: [{ id: 1, username: 'user', email: 'u@a.com', password_hash: '$2b$10$hash' }]
-    });
+    __mockQuery
+      .mockResolvedValueOnce({                                          // SELECT user
+        rows: [{ id: 1, username: 'user', email: 'u@a.com', password_hash: '$2b$10$hash',
+                 failed_attempts: 0, locked_until: null }]
+      })
+      .mockResolvedValueOnce({ rows: [] })  // UPDATE reset failed_attempts
+      .mockResolvedValueOnce({ rows: [] })  // audit log INSERT
+      .mockResolvedValueOnce({ rows: [] }); // INSERT refresh_token
+
     bcrypt.compare.mockResolvedValueOnce(true);
 
     const res = await request(app).post('/api/auth/login')

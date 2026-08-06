@@ -131,6 +131,7 @@
         </div>
         <div class="header-right">
           <div class="header-date" id="header-date"></div>
+          <button class="btn-notif" id="btn-notif" title="Thông báo" aria-label="Thông báo">🔔<span class="notif-badge" id="notif-badge" style="display:none">0</span></button>
           <button class="btn-theme" id="btn-theme" title="Đổi giao diện" aria-label="Toggle dark mode">🌙</button>
           <button class="btn-add-header" id="btn-open-add-modal"><span>+</span> Thêm mới</button>
         </div>
@@ -198,6 +199,43 @@
             <button class="time-btn" data-range="year" id="tf-year">Năm nay</button>
           </div>
         </div>
+
+        <!-- Phase 3: Forecast + Streak + Monthly Compare -->
+        <div class="analytics-insight-grid" id="analytics-insight-grid">
+          <div class="insight-card" id="forecast-card">
+            <div class="insight-icon">🔮</div>
+            <div class="insight-body">
+              <div class="insight-label">Dự báo cuối tháng</div>
+              <div class="insight-value" id="forecast-value">—</div>
+              <div class="insight-sub" id="forecast-sub">Đang tính...</div>
+            </div>
+          </div>
+          <div class="insight-card" id="streak-card">
+            <div class="insight-icon">🔥</div>
+            <div class="insight-body">
+              <div class="insight-label">Streak tiết kiệm</div>
+              <div class="insight-value" id="streak-value">—</div>
+              <div class="insight-sub">ngày liên tiếp trong ngân sách</div>
+            </div>
+          </div>
+          <div class="insight-card" id="compare-card">
+            <div class="insight-icon">📊</div>
+            <div class="insight-body">
+              <div class="insight-label">So với tháng trước</div>
+              <div class="insight-value" id="compare-value">—</div>
+              <div class="insight-sub" id="compare-sub">Đang tải...</div>
+            </div>
+          </div>
+          <div class="insight-card" id="top-cat-card">
+            <div class="insight-icon">🏆</div>
+            <div class="insight-body">
+              <div class="insight-label">Danh mục #1</div>
+              <div class="insight-value" id="top-cat-value">—</div>
+              <div class="insight-sub" id="top-cat-sub">Chi nhiều nhất tháng này</div>
+            </div>
+          </div>
+        </div>
+
         <div class="charts-grid">
           <div class="card chart-card">
             <div class="card-header"><h3>Tỷ lệ theo danh mục</h3></div>
@@ -261,6 +299,8 @@
               </select>
               <button class="btn btn-ghost btn-sm" id="btn-export-csv">📥 CSV</button>
               <button class="btn btn-ghost btn-sm" id="btn-export-pdf">📄 PDF</button>
+              <button class="btn btn-ghost btn-sm" id="btn-import-csv" title="Nhập dữ liệu từ CSV">📤 Import</button>
+              <input type="file" id="csv-file-input" accept=".csv" style="display:none" />
             </div>
           </div>
           <div class="card-body">
@@ -322,6 +362,30 @@
               </form>
             </div>
           </div>
+          <!-- Phase 3: Notification Settings -->
+          <div class="card">
+            <div class="card-header"><h3>🔔 Cài đặt thông báo Email</h3></div>
+            <div class="card-body">
+              <div class="notif-setting">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="notif-budget-alert" />
+                  <span>Cảnh báo khi vượt 80% ngân sách</span>
+                </label>
+              </div>
+              <div class="notif-setting">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="notif-monthly-report" />
+                  <span>Báo cáo tổng kết hàng tháng</span>
+                </label>
+              </div>
+              <button class="btn btn-primary" id="btn-save-notif" style="margin-top:16px">Lưu cài đặt</button>
+            </div>
+          </div>
+          <!-- Phase 3: Audit Log -->
+          <div class="card" style="grid-column: 1 / -1">
+            <div class="card-header"><h3>🔐 Lịch sử đăng nhập</h3></div>
+            <div class="card-body" id="audit-log-list"><div class="empty-state small">Đang tải...</div></div>
+          </div>
         </div>
       </section>
 
@@ -373,15 +437,39 @@
           </select>
           <span class="field-error" id="err-category"></span>
         </div>
-        <div class="form-group form-check-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="input-recurring" name="is_recurring" />
-            <span>Chi tiêu định kỳ</span>
-          </label>
-          <select id="input-recurring-interval" class="filter-select" style="display:none">
+        <!-- Phase 3: Currency selector -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="input-currency">Tiền tệ</label>
+            <select id="input-currency" class="filter-select">
+              <option value="VND">₫ VND — Việt Nam Đồng</option>
+              <option value="USD">$ USD — US Dollar</option>
+              <option value="EUR">€ EUR — Euro</option>
+              <option value="JPY">¥ JPY — Nhật Yên</option>
+              <option value="CNY">¥ CNY — Nhân dân tệ</option>
+              <option value="SGD">S$ SGD — Singapore</option>
+              <option value="KRW">₩ KRW — Won Hàn Quốc</option>
+              <option value="THB">฿ THB — Baht Thái</option>
+            </select>
+          </div>
+          <div class="form-group form-check-group" style="justify-content:flex-end;align-items:center">
+            <label class="checkbox-label">
+              <input type="checkbox" id="input-recurring" name="is_recurring" />
+              <span>Chi tiêu định kỳ</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="recurring-interval-wrap" style="display:none">
+          <label>Chu kỳ</label>
+          <select id="input-recurring-interval" class="filter-select">
             <option value="monthly">Hàng tháng</option>
             <option value="weekly">Hàng tuần</option>
           </select>
+        </div>
+        <!-- Phase 3: Notes field -->
+        <div class="form-group">
+          <label for="input-notes">Ghi chú <span style="color:var(--text-muted);font-size:12px">(tuỳ chọn)</span></label>
+          <textarea id="input-notes" name="notes" placeholder="Thêm ghi chú về khoản chi này..." rows="2" style="resize:vertical"></textarea>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="btn-cancel">Huỷ</button>
@@ -438,6 +526,45 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" id="btn-confirm-cancel">Huỷ</button>
         <button class="btn btn-danger" id="btn-confirm-delete">Xoá</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 3: In-app Notification Panel -->
+  <div class="notif-panel" id="notif-panel">
+    <div class="notif-panel-header">
+      <span>🔔 Thông báo</span>
+      <button class="notif-clear-btn" id="notif-clear-all">Xoá tất cả</button>
+    </div>
+    <div class="notif-panel-body" id="notif-list">
+      <div class="notif-empty">Không có thông báo nào</div>
+    </div>
+  </div>
+  <div class="notif-backdrop" id="notif-backdrop"></div>
+
+  <!-- Phase 3: CSV Import Modal -->
+  <div class="modal-overlay" id="import-modal-overlay">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>📤 Import dữ liệu từ CSV</h2>
+        <button class="modal-close" id="import-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary);margin-bottom:12px">File CSV cần có các cột: <code>description, amount, category, date</code></p>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px">Các cột tuỳ chọn: <code>notes, currency, is_recurring</code></p>
+        <div class="import-drop-zone" id="import-drop-zone">
+          <div class="import-drop-icon">📂</div>
+          <div class="import-drop-text">Kéo thả file CSV vào đây<br/>hoặc <label for="csv-file-input-modal" style="color:var(--primary);cursor:pointer">chọn file</label></div>
+          <input type="file" id="csv-file-input-modal" accept=".csv" style="display:none" />
+        </div>
+        <div id="import-preview" style="display:none;margin-top:16px">
+          <div id="import-preview-info" style="color:var(--text-secondary);margin-bottom:8px"></div>
+          <div id="import-preview-table" style="max-height:200px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="import-cancel">Huỷ</button>
+        <button class="btn btn-primary" id="btn-do-import" disabled>Nhập dữ liệu</button>
       </div>
     </div>
   </div>
