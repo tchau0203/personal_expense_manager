@@ -16,6 +16,16 @@ const emoji = cat => CATEGORY_EMOJI[cat] || '📦';
 const formatVND = n =>
   Number(n).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 
+const CURRENCY_SYMBOLS = {
+  VND: '₫', USD: '$', EUR: '€', JPY: '¥', CNY: '¥', SGD: 'S$', KRW: '₩', THB: '฿'
+};
+
+function formatAmount(amount, currency = 'VND') {
+  const sym = CURRENCY_SYMBOLS[currency] || currency;
+  if (currency === 'VND') return Number(amount).toLocaleString('vi-VN') + ' ' + sym;
+  return sym + Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 const formatDate = str => {
   if (!str) return '—';
   const d = new Date(str);
@@ -305,11 +315,25 @@ function renderTable() {
       <td class="amount-cell">-${formatVND(x.amount)}</td>
       <td>
         <div class="action-btns">
-          <button class="btn-edit" id="edit-${x.id}" onclick="openEditModal(${x.id})">✏️ Sửa</button>
-          <button class="btn-delete" id="del-${x.id}" onclick="confirmDelete(${x.id})">🗑️ Xoá</button>
+          <button class="btn-edit" data-expense-id="${x.id}" type="button">✏️ Sửa</button>
+          <button class="btn-delete" data-expense-id="${x.id}" type="button">🗑️ Xoá</button>
         </div>
       </td>
     </tr>`).join('');
+}
+
+function handleExpenseTableClick(e) {
+  const editBtn = e.target.closest('.btn-edit');
+  if (editBtn) {
+    const id = editBtn.dataset.expenseId;
+    openEditModal(id);
+    return;
+  }
+  const deleteBtn = e.target.closest('.btn-delete');
+  if (deleteBtn) {
+    const id = deleteBtn.dataset.expenseId;
+    confirmDelete(id);
+  }
 }
 
 // ── Pagination ───────────────────────────────────────────────────
@@ -368,6 +392,8 @@ async function submitExpense(e) {
 
   const editId = document.getElementById('edit-id').value;
   const isRecurring = document.getElementById('input-recurring').checked;
+  const notes = document.getElementById('input-notes')?.value.trim() || null;
+  const currency = document.getElementById('input-currency')?.value || 'VND';
   const body = {
     description:        document.getElementById('input-desc').value.trim(),
     amount:             Number(document.getElementById('input-amount').value),
@@ -375,6 +401,8 @@ async function submitExpense(e) {
     date:               document.getElementById('input-date').value,
     is_recurring:       isRecurring,
     recurring_interval: isRecurring ? document.getElementById('input-recurring-interval').value : null,
+    notes,
+    currency,
   };
 
   try {
@@ -401,19 +429,26 @@ function resetForm() {
   document.getElementById('edit-id').value = '';
   document.getElementById('modal-title').textContent = 'Thêm khoản chi tiêu';
   document.getElementById('btn-submit').querySelector('.btn-text').textContent = 'Lưu chi tiêu';
+  const intWrap = document.getElementById('recurring-interval-wrap');
+  if (intWrap) intWrap.style.display = 'none';
   document.getElementById('input-recurring-interval').style.display = 'none';
   ['err-desc','err-amount','err-date','err-category'].forEach(id =>
     document.getElementById(id).textContent = '');
   ['input-desc','input-amount','input-date','input-category'].forEach(id =>
     document.getElementById(id).classList.remove('invalid'));
+  // Phase 3: reset notes and currency
+  const notesEl = document.getElementById('input-notes');
+  if (notesEl) notesEl.value = '';
+  const currEl = document.getElementById('input-currency');
+  if (currEl) currEl.value = 'VND';
 }
 
 // ── Edit Expense ─────────────────────────────────────────────────
 function openEditModal(id) {
-  const exp = allExpenses.find(x => x.id === id);
+  const exp = allExpenses.find(x => String(x.id) === String(id));
   if (!exp) return;
 
-  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-id').value = String(id);
   document.getElementById('modal-title').textContent = 'Chỉnh sửa chi tiêu';
   document.getElementById('btn-submit').querySelector('.btn-text').textContent = 'Cập nhật';
 
@@ -424,11 +459,20 @@ function openEditModal(id) {
   document.getElementById('input-category').value = exp.category;
   document.getElementById('input-recurring').checked = exp.is_recurring || false;
 
+  // Phase 3: notes and currency
+  const notesEl = document.getElementById('input-notes');
+  if (notesEl) notesEl.value = exp.notes || '';
+  const currEl = document.getElementById('input-currency');
+  if (currEl) currEl.value = exp.currency || 'VND';
+
+  const intWrap = document.getElementById('recurring-interval-wrap');
   const intervalSel = document.getElementById('input-recurring-interval');
   if (exp.is_recurring) {
+    if (intWrap) intWrap.style.display = '';
     intervalSel.style.display = '';
     intervalSel.value = exp.recurring_interval || 'monthly';
   } else {
+    if (intWrap) intWrap.style.display = 'none';
     intervalSel.style.display = 'none';
   }
 
@@ -492,7 +536,7 @@ function navigate(target) {
   if (sectEl) sectEl.classList.add('active');
 
   if (target === 'list')      { currentPage = 1; loadExpenses(); }
-  if (target === 'analytics') renderCharts();
+  if (target === 'analytics') { renderCharts(); loadAnalyticsInsights(); }
   if (target === 'budget')    loadBudgets();
   if (target === 'profile')   loadProfile();
 }
@@ -844,9 +888,9 @@ async function exportCSV() {
   try {
     const data = await apiFetch('/expenses?limit=5000&sort=date-desc');
     const expenses = data.data || data;
-    const header = 'STT,Mô tả,Danh mục,Ngày,Số tiền (VND),Định kỳ';
+    const header = 'STT,Mô tả,Danh mục,Ngày,Số tiền,Tiền tệ,Ghi chú,Định kỳ';
     const rows = expenses.map((x, i) =>
-      `${i + 1},"${x.description.replace(/"/g, '""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},${x.is_recurring ? 'Có' : 'Không'}`
+      `${i + 1},"${(x.description||'').replace(/"/g,'""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},${x.currency||'VND'},"${(x.notes||'').replace(/"/g,'""')}",${x.is_recurring ? 'Có' : 'Không'}`
     );
     const csv  = [header, ...rows].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -974,12 +1018,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Recurring toggle
   document.getElementById('input-recurring').addEventListener('change', e => {
-    document.getElementById('input-recurring-interval').style.display =
-      e.target.checked ? '' : 'none';
+    const wrap = document.getElementById('recurring-interval-wrap');
+    const sel  = document.getElementById('input-recurring-interval');
+    const show = e.target.checked;
+    if (wrap) wrap.style.display = show ? '' : 'none';
+    sel.style.display = show ? '' : 'none';
   });
 
   // Expense form
   document.getElementById('expense-form').addEventListener('submit', submitExpense);
+  document.getElementById('expense-tbody').addEventListener('click', handleExpenseTableClick);
 
   // Delete confirm
   document.getElementById('btn-confirm-delete').addEventListener('click', doDelete);
@@ -988,14 +1036,47 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('confirm-overlay').classList.remove('open');
   });
 
-  // Search / filter
-  document.getElementById('search-input').addEventListener('input', () => { currentPage = 1; loadExpenses(); });
+  // Search / filter — Phase 3: debounce search
+  let searchDebounceTimer;
+  document.getElementById('search-input').addEventListener('input', () => {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => { currentPage = 1; loadExpenses(); }, 300);
+  });
   document.getElementById('filter-category').addEventListener('change', () => { currentPage = 1; loadExpenses(); });
   document.getElementById('sort-select').addEventListener('change', () => { currentPage = 1; loadExpenses(); });
 
   // Export
   document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
+
+  // Phase 3: Import CSV
+  document.getElementById('btn-import-csv').addEventListener('click', () => {
+    document.getElementById('import-modal-overlay').classList.add('open');
+  });
+  document.getElementById('import-modal-close').addEventListener('click', () => {
+    document.getElementById('import-modal-overlay').classList.remove('open');
+    resetImport();
+  });
+  document.getElementById('import-cancel').addEventListener('click', () => {
+    document.getElementById('import-modal-overlay').classList.remove('open');
+    resetImport();
+  });
+  ['csv-file-input-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', e => handleCSVFile(e.target.files[0]));
+  });
+  const dropZone = document.getElementById('import-drop-zone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleCSVFile(e.dataTransfer.files[0]); });
+  }
+  document.getElementById('btn-do-import').addEventListener('click', doImportCSV);
+
+  // Phase 3: Notification bell
+  document.getElementById('btn-notif').addEventListener('click', toggleNotifPanel);
+  document.getElementById('notif-backdrop').addEventListener('click', closeNotifPanel);
+  document.getElementById('notif-clear-all').addEventListener('click', clearAllNotifications);
 
   // Budget modal
   document.getElementById('btn-open-budget-modal').addEventListener('click', () => {
@@ -1016,11 +1097,15 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       currentRange = btn.dataset.range;
       renderCharts();
+      loadAnalyticsInsights();
     });
   });
 
   // Profile
   document.getElementById('change-pw-form').addEventListener('submit', submitChangePassword);
+  // Phase 3: Notification settings
+  const btnSaveNotif = document.getElementById('btn-save-notif');
+  if (btnSaveNotif) btnSaveNotif.addEventListener('click', saveNotificationSettings);
 
   // Check auth on load
   if (currentToken && currentUser) {
@@ -1029,3 +1114,319 @@ document.addEventListener('DOMContentLoaded', () => {
     showAuthPage();
   }
 });
+
+// ================================================================
+// PHASE 3 — New Features
+// ================================================================
+
+// ── In-App Notifications ─────────────────────────────────────────
+let inAppNotifications = JSON.parse(localStorage.getItem('inapp_notifications') || '[]');
+
+function addNotification(title, message, type = 'info') {
+  const notif = { id: Date.now(), title, message, type, time: new Date().toISOString(), read: false };
+  inAppNotifications.unshift(notif);
+  if (inAppNotifications.length > 50) inAppNotifications = inAppNotifications.slice(0, 50);
+  localStorage.setItem('inapp_notifications', JSON.stringify(inAppNotifications));
+  renderNotifBadge();
+  renderNotifPanel();
+}
+
+function renderNotifBadge() {
+  const unread = inAppNotifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notif-badge');
+  if (badge) {
+    badge.textContent = unread > 9 ? '9+' : unread;
+    badge.style.display = unread > 0 ? 'flex' : 'none';
+  }
+}
+
+function renderNotifPanel() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  if (!inAppNotifications.length) {
+    list.innerHTML = '<div class="notif-empty">Không có thông báo nào</div>';
+    return;
+  }
+  list.innerHTML = inAppNotifications.map(n => `
+    <div class="notif-item ${n.read ? 'read' : 'unread'} notif-${n.type}" data-id="${n.id}">
+      <div class="notif-item-icon">${n.type === 'warning' ? '⚠️' : n.type === 'error' ? '❌' : 'ℹ️'}</div>
+      <div class="notif-item-body">
+        <div class="notif-item-title">${escHtml(n.title)}</div>
+        <div class="notif-item-msg">${escHtml(n.message)}</div>
+        <div class="notif-item-time">${formatDate(n.time)}</div>
+      </div>
+    </div>`).join('');
+
+  // Mark all as read on render
+  list.querySelectorAll('.notif-item').forEach(el => {
+    el.addEventListener('click', () => markNotifRead(parseInt(el.dataset.id)));
+  });
+}
+
+function markNotifRead(id) {
+  const n = inAppNotifications.find(x => x.id === id);
+  if (n) { n.read = true; localStorage.setItem('inapp_notifications', JSON.stringify(inAppNotifications)); renderNotifBadge(); }
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  const backdrop = document.getElementById('notif-backdrop');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) { panel.classList.remove('open'); backdrop.style.display = 'none'; }
+  else { renderNotifPanel(); panel.classList.add('open'); backdrop.style.display = 'block'; }
+}
+
+function closeNotifPanel() {
+  document.getElementById('notif-panel').classList.remove('open');
+  document.getElementById('notif-backdrop').style.display = 'none';
+}
+
+function clearAllNotifications() {
+  inAppNotifications = [];
+  localStorage.removeItem('inapp_notifications');
+  renderNotifBadge();
+  renderNotifPanel();
+}
+
+// Init notifications on load
+renderNotifBadge();
+
+// ── Analytics Insights (Phase 3) ─────────────────────────────────
+async function loadAnalyticsInsights() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year  = now.getFullYear();
+
+  // Forecast
+  try {
+    const fc = await apiFetch(`/analytics/forecast?month=${month}&year=${year}`);
+    const forecastEl = document.getElementById('forecast-value');
+    const forecastSub = document.getElementById('forecast-sub');
+    if (forecastEl) forecastEl.textContent = formatVND(fc.projectedTotal);
+    if (forecastSub) forecastSub.textContent =
+      `Đã chi ${formatVND(fc.spent)} / ${fc.daysPassed} ngày (${fc.daysRemaining} ngày còn lại)`;
+  } catch (e) { /* silent */ }
+
+  // Streak
+  try {
+    const st = await apiFetch('/analytics/streak');
+    const streakEl = document.getElementById('streak-value');
+    if (streakEl) streakEl.textContent = `🔥 ${st.streak}`;
+    if (st.streak > 0) addNotification('Streak tiết kiệm!', `Bạn đang trong chuỗi ${st.streak} ngày không vượt ngân sách.`, 'info');
+  } catch (e) { /* silent */ }
+
+  // Monthly compare
+  try {
+    const mc = await apiFetch(`/analytics/monthly-compare?month=${month}&year=${year}`);
+    const compareEl  = document.getElementById('compare-value');
+    const compareSub = document.getElementById('compare-sub');
+    if (compareEl && mc.changePercent !== null) {
+      const sign = mc.changePercent >= 0 ? '+' : '';
+      const color = mc.changePercent >= 0 ? '#ef4444' : '#22c55e';
+      compareEl.innerHTML = `<span style="color:${color}">${sign}${mc.changePercent.toFixed(1)}%</span>`;
+      if (mc.changePercent > 20) {
+        addNotification('Chi tiêu tăng cao!', `Tháng này bạn chi nhiều hơn tháng trước ${mc.changePercent.toFixed(0)}%.`, 'warning');
+      }
+    } else if (compareEl) {
+      compareEl.textContent = 'Chưa có dữ liệu';
+    }
+    if (compareSub) compareSub.textContent = `Tháng trước: ${formatVND(mc.previous.total)}`;
+  } catch (e) { /* silent */ }
+
+  // Top categories
+  try {
+    const tc = await apiFetch(`/analytics/top-categories?month=${month}&year=${year}&limit=1`);
+    const topEl  = document.getElementById('top-cat-value');
+    const topSub = document.getElementById('top-cat-sub');
+    if (topEl && tc.data.length > 0) {
+      const top = tc.data[0];
+      topEl.textContent = `${emoji(top.category)} ${top.category}`;
+      if (topSub) topSub.textContent = `${formatVND(top.total)} (${top.percent.toFixed(0)}%)`;
+    }
+  } catch (e) { /* silent */ }
+}
+
+// ── CSV Import ───────────────────────────────────────────────────
+let csvImportData = [];
+
+function resetImport() {
+  csvImportData = [];
+  const prev = document.getElementById('import-preview');
+  if (prev) prev.style.display = 'none';
+  const btn = document.getElementById('btn-do-import');
+  if (btn) btn.disabled = true;
+  const inp = document.getElementById('csv-file-input-modal');
+  if (inp) inp.value = '';
+}
+
+function handleCSVFile(file) {
+  if (!file || !file.name.endsWith('.csv')) {
+    showToast('❌ Vui lòng chọn file .csv', 'error'); return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result.replace(/^\uFEFF/, ''); // Remove BOM
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 2) { showToast('❌ File CSV trống hoặc thiếu dữ liệu.', 'error'); return; }
+
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+    const reqCols = ['description', 'amount', 'category', 'date'];
+    const missing = reqCols.filter(c => !headers.includes(c));
+    if (missing.length) { showToast(`❌ Thiếu cột: ${missing.join(', ')}`, 'error'); return; }
+
+    csvImportData = lines.slice(1).map(line => {
+      const vals = parseCSVLine(line);
+      const row = {};
+      headers.forEach((h, i) => row[h] = vals[i] || '');
+      return {
+        description: row.description,
+        amount: parseFloat(row.amount) || 0,
+        category: row.category,
+        date: row.date,
+        notes: row.notes || null,
+        currency: row.currency?.toUpperCase() || 'VND',
+        is_recurring: row.is_recurring === 'Có' || row.is_recurring === 'true',
+      };
+    }).filter(r => r.description && r.amount > 0 && r.category && r.date);
+
+    const prevEl = document.getElementById('import-preview');
+    const infoEl = document.getElementById('import-preview-info');
+    const tableEl = document.getElementById('import-preview-table');
+    if (prevEl) prevEl.style.display = 'block';
+    if (infoEl) infoEl.textContent = `Tìm thấy ${csvImportData.length} bản ghi hợp lệ (bỏ qua ${lines.length - 1 - csvImportData.length} lỗi).`;
+    if (tableEl) tableEl.innerHTML = `
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr style="color:var(--text-muted)">
+          <th style="text-align:left;padding:4px">Mô tả</th>
+          <th style="padding:4px">Danh mục</th>
+          <th style="padding:4px">Số tiền</th>
+          <th style="padding:4px">Ngày</th>
+        </tr></thead>
+        <tbody>${csvImportData.slice(0, 5).map(r => `
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:4px">${escHtml(r.description)}</td>
+            <td style="padding:4px;text-align:center">${r.category}</td>
+            <td style="padding:4px;text-align:right">${r.amount.toLocaleString()}</td>
+            <td style="padding:4px;text-align:center">${r.date}</td>
+          </tr>`).join('')}
+          ${csvImportData.length > 5 ? `<tr><td colspan="4" style="padding:4px;text-align:center;color:var(--text-muted)">... và ${csvImportData.length - 5} bản ghi khác</td></tr>` : ''}
+        </tbody>
+      </table>`;
+
+    const btnImport = document.getElementById('btn-do-import');
+    if (btnImport) btnImport.disabled = csvImportData.length === 0;
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuotes = !inQuotes; }
+    else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+    else { current += ch; }
+  }
+  result.push(current);
+  return result.map(s => s.trim().replace(/^"|"$/g, ''));
+}
+
+async function doImportCSV() {
+  if (!csvImportData.length) return;
+  const btn = document.getElementById('btn-do-import');
+  btn.disabled = true; btn.textContent = 'Đang nhập...';
+
+  let success = 0, failed = 0;
+  for (const row of csvImportData) {
+    try {
+      await apiFetch('/expenses', { method: 'POST', body: JSON.stringify(row) });
+      success++;
+    } catch (e) { failed++; }
+  }
+
+  showToast(`✅ Đã nhập ${success} bản ghi${failed ? `, ${failed} lỗi` : ''}.`, success > 0 ? 'success' : 'error');
+  addNotification('Import CSV hoàn tất', `Đã nhập ${success}/${csvImportData.length} bản ghi thành công.`, success > 0 ? 'info' : 'warning');
+  document.getElementById('import-modal-overlay').classList.remove('open');
+  resetImport();
+  currentPage = 1;
+  await loadExpenses();
+  btn.disabled = false; btn.textContent = 'Nhập dữ liệu';
+}
+
+// ── Audit Log (Profile) ──────────────────────────────────────────
+async function loadAuditLog() {
+  const el = document.getElementById('audit-log-list');
+  if (!el) return;
+  try {
+    const logs = await apiFetch('/auth/audit-logs');
+    if (!logs.length) { el.innerHTML = '<div class="empty-state small">Chưa có lịch sử đăng nhập.</div>'; return; }
+
+    const eventLabels = {
+      login_success: { label: '✅ Đăng nhập thành công', cls: 'success' },
+      login_fail:    { label: '❌ Đăng nhập thất bại',  cls: 'danger'  },
+      login_blocked: { label: '🚫 Bị chặn (quá nhiều lần sai)', cls: 'danger' },
+      logout:        { label: '👋 Đăng xuất',           cls: 'info'   },
+      password_change:{ label: '🔑 Đổi mật khẩu',      cls: 'warning' },
+      register:      { label: '🎉 Đăng ký tài khoản',   cls: 'success' },
+    };
+
+    el.innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="color:var(--text-muted);text-align:left">
+            <th style="padding:8px">Sự kiện</th>
+            <th style="padding:8px">Địa chỉ IP</th>
+            <th style="padding:8px">Thời gian</th>
+          </tr></thead>
+          <tbody>${logs.map(l => {
+            const info = eventLabels[l.event] || { label: l.event, cls: 'info' };
+            return `<tr style="border-top:1px solid var(--border)">
+              <td style="padding:8px"><span class="badge-status badge-${info.cls}">${info.label}</span></td>
+              <td style="padding:8px;color:var(--text-secondary)">${l.ip_address || '—'}</td>
+              <td style="padding:8px;color:var(--text-muted)">${new Date(l.created_at).toLocaleString('vi-VN')}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state small">Không thể tải lịch sử đăng nhập.</div>';
+  }
+}
+
+// ── Notification Settings (Profile) ─────────────────────────────
+async function loadNotificationSettings() {
+  try {
+    const user = await apiFetch('/auth/me');
+    const alertEl  = document.getElementById('notif-budget-alert');
+    const reportEl = document.getElementById('notif-monthly-report');
+    if (alertEl)  alertEl.checked  = user.notify_budget_alert  !== false;
+    if (reportEl) reportEl.checked = user.notify_monthly_report !== false;
+  } catch (e) { /* silent */ }
+}
+
+async function saveNotificationSettings() {
+  const alertEl  = document.getElementById('notif-budget-alert');
+  const reportEl = document.getElementById('notif-monthly-report');
+  try {
+    await apiFetch('/auth/notifications', {
+      method: 'PUT',
+      body: JSON.stringify({
+        notify_budget_alert:   alertEl?.checked ?? true,
+        notify_monthly_report: reportEl?.checked ?? true,
+      })
+    });
+    showToast('✅ Đã lưu cài đặt thông báo!', 'success');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+// Override loadProfile to include Phase 3 features
+const _originalLoadProfile = loadProfile;
+loadProfile = async function() {
+  await _originalLoadProfile();
+  await loadAuditLog();
+  await loadNotificationSettings();
+};

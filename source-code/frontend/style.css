@@ -612,3 +612,160 @@ a:hover { text-decoration: underline; }
   .stats-grid { grid-template-columns: 1fr; }
   .auth-card  { padding: 28px 20px; }
 }
+
+/* ================================================================
+   PHASE 3 — New Styles
+   ================================================================ */
+
+/* ── Notification Bell ──────────────────────────────────────── */
+.btn-notif {
+  position: relative;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-notif:hover { background: var(--bg-hover); transform: scale(1.05); }
+
+.notif-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 700;
+  min-width: 18px; height: 18px;
+  border-radius: 9px; padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--bg-surface);
+}
+
+/* ── Notification Panel ─────────────────────────────────────── */
+.notif-panel {
+  position: fixed; top: 70px; right: 16px; z-index: 1100;
+  width: 360px; max-height: 480px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column;
+  transform: translateY(-10px) scale(0.95);
+  opacity: 0; pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.notif-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: all; }
+
+.notif-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600; color: var(--text-primary);
+}
+.notif-clear-btn {
+  background: none; border: none; color: var(--accent);
+  font-size: 12px; cursor: pointer; padding: 4px 8px;
+  border-radius: 6px; transition: background 0.2s;
+}
+.notif-clear-btn:hover { background: var(--accent-light); }
+
+.notif-panel-body { overflow-y: auto; flex: 1; }
+
+.notif-empty {
+  padding: 32px; text-align: center;
+  color: var(--text-muted); font-size: 14px;
+}
+
+.notif-item {
+  display: flex; gap: 12px; padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.15s;
+}
+.notif-item:hover { background: var(--bg-hover); }
+.notif-item.unread { background: rgba(108,99,255,0.06); }
+.notif-item-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.notif-item-title { font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 3px; }
+.notif-item-msg   { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.notif-item-time  { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.notif-backdrop {
+  position: fixed; inset: 0; z-index: 1099; display: none;
+}
+
+/* ── Analytics Insight Cards ────────────────────────────────── */
+.analytics-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1200px) { .analytics-insight-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .analytics-insight-grid { grid-template-columns: 1fr; } }
+
+.insight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex; align-items: center; gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.insight-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+.insight-icon { font-size: 32px; flex-shrink: 0; }
+.insight-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.insight-value { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.insight-sub   { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+
+/* ── Import Drop Zone ───────────────────────────────────────── */
+.import-drop-zone {
+  border: 2px dashed var(--border-focus);
+  border-radius: 12px; padding: 32px;
+  text-align: center; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.import-drop-zone:hover, .import-drop-zone.dragover {
+  background: var(--accent-light); border-color: var(--accent);
+}
+.import-drop-icon { font-size: 36px; margin-bottom: 8px; }
+.import-drop-text { color: var(--text-secondary); font-size: 14px; line-height: 1.7; }
+
+/* ── Audit Log Badges ───────────────────────────────────────── */
+.badge-status {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 500;
+}
+.badge-success { background: var(--success-light); color: var(--success); }
+.badge-danger  { background: rgba(248,113,113,0.12); color: var(--danger); }
+.badge-warning { background: var(--warning-light); color: var(--warning); }
+.badge-info    { background: var(--accent-light);  color: var(--accent); }
+
+/* ── Notification Settings ──────────────────────────────────── */
+.notif-setting {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.notif-setting:last-child { border-bottom: none; }
+
+/* ── Textarea (Notes field) ─────────────────────────────────── */
+textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  font-size: 14px;
+  padding: 10px 14px;
+  width: 100%; box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+textarea:focus { outline: none; border-color: var(--border-focus); }
+textarea::placeholder { color: var(--text-muted); }
+
+/* ── Currency Badge in table ────────────────────────────────── */
+.currency-badge {
+  display: inline-block;
+  padding: 1px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+  background: var(--accent-light); color: var(--accent);
+  margin-left: 4px;
+}

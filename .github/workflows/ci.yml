@@ -1,0 +1,66 @@
+﻿name: CI — Personal Expense Manager
+
+on:
+  push:
+    branches: [main, dev-chau]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests and Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: source-code/backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: source-code/backend
+        run: npm ci
+
+      - name: Run tests with coverage
+        working-directory: source-code/backend
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: expense_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          JWT_SECRET: test_secret_key_for_ci
+          JWT_EXPIRES_IN: 15m
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: source-code/backend/coverage/
+          retention-days: 30
+
+  syntax-check:
+    name: Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check syntax
+        working-directory: source-code/backend
+        run: |
+          npm ci
+          node --check server.js
+          node --check controllers/auth.controller.js
+          node --check controllers/expense.controller.js
+          node --check controllers/budget.controller.js
+          node --check controllers/analytics.controller.js
+          echo "All files pass syntax check"
