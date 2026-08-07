@@ -26,6 +26,11 @@ function formatAmount(amount, currency = 'VND') {
   return sym + Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getCommonCurrency(items) {
+  const currencies = [...new Set(items.map(x => (x.currency || 'VND').toUpperCase()))];
+  return currencies.length === 1 ? currencies[0] : null;
+}
+
 const formatDate = str => {
   if (!str) return '—';
   const d = new Date(str);
@@ -239,10 +244,10 @@ function renderDashboard() {
   const count = allExpenses.length;
   const avg   = count ? total / count : 0;
 
-  document.getElementById('stat-total').textContent = formatVND(total);
-  document.getElementById('stat-month').textContent = formatVND(monthly);
+  document.getElementById('stat-total').textContent = formatAmount(total, 'VND');
+  document.getElementById('stat-month').textContent = formatAmount(monthly, 'VND');
   document.getElementById('stat-count').textContent = count;
-  document.getElementById('stat-avg').textContent   = formatVND(avg);
+  document.getElementById('stat-avg').textContent   = formatAmount(avg, 'VND');
   document.getElementById('stat-month-label').textContent =
     `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
 
@@ -272,7 +277,7 @@ function renderCategorySummary(grandTotal) {
           <div class="cat-name">${cat} <span style="color:var(--text-muted);font-size:11px">(${pct}%)</span></div>
           <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
         </div>
-        <span class="cat-amount">${formatVND(amt)}</span>
+        <span class="cat-amount">${formatAmount(amt, 'VND')}</span>
       </div>`;
   }).join('');
 }
@@ -292,7 +297,7 @@ function renderRecentList() {
         <div class="recent-desc">${escHtml(x.description)}</div>
         <div class="recent-meta">${x.category} · ${formatDate(x.expense_date)}</div>
       </div>
-      <span class="recent-amount">-${formatVND(x.amount)}</span>
+      <span class="recent-amount">-${formatAmount(x.amount, 'VND')}</span>
     </div>`).join('');
 }
 
@@ -312,7 +317,7 @@ function renderTable() {
       </td>
       <td><span class="category-badge">${emoji(x.category)} ${x.category}</span></td>
       <td style="color:var(--text-secondary)">${formatDate(x.expense_date)}</td>
-      <td class="amount-cell">-${formatVND(x.amount)}</td>
+      <td class="amount-cell">-${formatAmount(x.amount, 'VND')}</td>
       <td>
         <div class="action-btns">
           <button class="btn-edit" data-expense-id="${x.id}" type="button">✏️ Sửa</button>
@@ -801,7 +806,7 @@ function renderBudgetList(budgets) {
         </div>
         <div class="budget-pct ${pctClass}">${pct}%${warning}</div>
         <div class="budget-actions">
-          <button class="btn btn-ghost btn-sm" onclick="deleteBudget(${b.id})">🗑️ Xoá</button>
+          <button class="btn btn-ghost btn-sm btn-budget-delete" data-budget-id="${b.id}" type="button">🗑️ Xoá</button>
         </div>
       </div>`;
   }).join('');
@@ -835,13 +840,25 @@ async function submitBudget(e) {
 }
 
 async function deleteBudget(id) {
+  if (!id) {
+    showToast('❌ Không xác định được ngân sách cần xoá.', 'error');
+    return;
+  }
+
   try {
     await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
     showToast('🗑️ Đã xoá ngân sách.', 'info');
-    loadBudgets();
+    await loadBudgets();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+function handleBudgetListClick(e) {
+  const deleteBtn = e.target.closest('.btn-budget-delete');
+  if (!deleteBtn) return;
+  const id = deleteBtn.dataset.budgetId;
+  deleteBudget(id);
 }
 
 // ── Profile ──────────────────────────────────────────────────────
@@ -890,7 +907,7 @@ async function exportCSV() {
     const expenses = data.data || data;
     const header = 'STT,Mô tả,Danh mục,Ngày,Số tiền,Tiền tệ,Ghi chú,Định kỳ';
     const rows = expenses.map((x, i) =>
-      `${i + 1},"${(x.description||'').replace(/"/g,'""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},${x.currency||'VND'},"${(x.notes||'').replace(/"/g,'""')}",${x.is_recurring ? 'Có' : 'Không'}`
+      `${i + 1},"${(x.description||'').replace(/"/g,'""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},VND,"${(x.notes||'').replace(/"/g,'""')}",${x.is_recurring ? 'Có' : 'Không'}`
     );
     const csv  = [header, ...rows].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1028,6 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Expense form
   document.getElementById('expense-form').addEventListener('submit', submitExpense);
   document.getElementById('expense-tbody').addEventListener('click', handleExpenseTableClick);
+  document.getElementById('budget-list').addEventListener('click', handleBudgetListClick);
 
   // Delete confirm
   document.getElementById('btn-confirm-delete').addEventListener('click', doDelete);

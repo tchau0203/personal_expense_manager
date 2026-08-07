@@ -1,4 +1,5 @@
 const { getPool } = require('../../database/database');
+const { convert } = require('../services/currency.service');
 
 // GET /api/expenses
 async function getExpenses(req, res) {
@@ -62,10 +63,14 @@ async function createExpense(req, res) {
 
   try {
     const pool = getPool();
+    const amountVND = cur === 'VND'
+      ? Number(amount)
+      : await convert(Number(amount), cur, 'VND');
+
     const result = await pool.query(
       `INSERT INTO expenses (user_id, description, amount, category, expense_date, is_recurring, recurring_interval, notes, currency)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.user.id, description.trim(), Number(amount), category, date, is_recurring, recurring_interval || null, notes || null, cur]
+      [req.user.id, description.trim(), amountVND, category, date, is_recurring, recurring_interval || null, notes || null, 'VND']
     );
 
     // Kiểm tra budget alert
@@ -91,17 +96,25 @@ async function updateExpense(req, res) {
   if (Number(amount) <= 0)
     return res.status(400).json({ error: 'Số tiền phải lớn hơn 0.' });
 
+  const validCurrencies = ['VND', 'USD', 'EUR', 'JPY', 'CNY', 'SGD', 'KRW', 'THB'];
+  const cur = currency ? currency.toUpperCase() : 'VND';
+  if (!validCurrencies.includes(cur))
+    return res.status(400).json({ error: 'Tiền tệ không hợp lệ.' });
+
   try {
     const pool = getPool();
-    const cur = currency ? currency.toUpperCase() : 'VND';
+    const amountVND = cur === 'VND'
+      ? Number(amount)
+      : await convert(Number(amount), cur, 'VND');
+
     const result = await pool.query(
       `UPDATE expenses
        SET description = $1, amount = $2, category = $3, expense_date = $4,
            is_recurring = $5, recurring_interval = $6, notes = $7, currency = $8
        WHERE id = $9 AND user_id = $10
        RETURNING *`,
-      [description.trim(), Number(amount), category, date,
-       is_recurring ?? false, recurring_interval || null, notes || null, cur, id, req.user.id]
+      [description.trim(), amountVND, category, date,
+       is_recurring ?? false, recurring_interval || null, notes || null, 'VND', id, req.user.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Không tìm thấy chi tiêu.' });
