@@ -3,16 +3,16 @@
    Dùng tỷ giá cứng + cache 24h, hoặc ExchangeRate-API nếu có key
    ================================================================ */
 
-// Tỷ giá cứng dự phòng (VND làm base, cập nhật mỗi tháng thủ công)
+// Tỷ giá cứng dự phòng: giá trị 1 unit chuyển về VND
 const FALLBACK_RATES = {
   VND: 1,
-  USD: 0.000039,    // 1 VND ≈ 0.000039 USD (1 USD ≈ 25,700 VND)
-  EUR: 0.000036,    // 1 VND ≈ 0.000036 EUR
-  JPY: 0.0059,      // 1 VND ≈ 0.0059 JPY
-  CNY: 0.00028,     // 1 VND ≈ 0.00028 CNY
-  SGD: 0.000052,    // 1 VND ≈ 0.000052 SGD
-  KRW: 0.054,       // 1 VND ≈ 0.054 KRW
-  THB: 0.0014,      // 1 VND ≈ 0.0014 THB
+  USD: 26300,
+  EUR: 30100,
+  JPY: 175,
+  CNY: 3700,
+  SGD: 20900,
+  KRW: 19.2,
+  THB: 810,
 };
 
 const CURRENCY_SYMBOLS = {
@@ -70,17 +70,19 @@ async function getRates() {
 
 // Chuyển đổi tiền tệ
 async function convert(amount, fromCurrency, toCurrency) {
-  if (fromCurrency === toCurrency) return amount;
+  const from = String(fromCurrency || 'VND').toUpperCase();
+  const to = String(toCurrency || 'VND').toUpperCase();
+  if (from === to) return amount;
   const rates = await getRates();
 
-  // Chuyển về VND trước, rồi sang target
-  const amountInVND = fromCurrency === 'VND'
+  // Chuyển giá trị về VND theo tỷ giá hiện tại, rồi sang loại tiền đích
+  const amountInVND = from === 'VND'
     ? amount
-    : amount / (rates[fromCurrency] || 1);
+    : amount * (rates[from] || 1);
 
-  const result = toCurrency === 'VND'
+  const result = to === 'VND'
     ? amountInVND
-    : amountInVND * (rates[toCurrency] || 1);
+    : amountInVND / (rates[to] || 1);
 
   return Math.round(result * 100) / 100;
 }

@@ -26,6 +26,11 @@ function formatAmount(amount, currency = 'VND') {
   return sym + Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getCommonCurrency(items) {
+  const currencies = [...new Set(items.map(x => (x.currency || 'VND').toUpperCase()))];
+  return currencies.length === 1 ? currencies[0] : null;
+}
+
 const formatDate = str => {
   if (!str) return '—';
   const d = new Date(str);
@@ -66,13 +71,15 @@ async function apiFetch(path, options = {}) {
     headers: { ...getHeaders(), ...(options.headers || {}) }
   });
 
-  if (res.status === 401) {
-    logout(false);
-    throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-  }
-
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Lỗi ${res.status}`);
+  if (!res.ok) {
+    const isAuthEndpoint = path === '/auth/login' || path === '/auth/register' || path === '/auth/refresh';
+    if (res.status === 401 && !isAuthEndpoint) {
+      logout(false);
+      throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+    }
+    throw new Error(data.error || `Lỗi ${res.status}`);
+  }
   return data;
 }
 
@@ -239,10 +246,10 @@ function renderDashboard() {
   const count = allExpenses.length;
   const avg   = count ? total / count : 0;
 
-  document.getElementById('stat-total').textContent = formatVND(total);
-  document.getElementById('stat-month').textContent = formatVND(monthly);
+  document.getElementById('stat-total').textContent = formatAmount(total, 'VND');
+  document.getElementById('stat-month').textContent = formatAmount(monthly, 'VND');
   document.getElementById('stat-count').textContent = count;
-  document.getElementById('stat-avg').textContent   = formatVND(avg);
+  document.getElementById('stat-avg').textContent   = formatAmount(avg, 'VND');
   document.getElementById('stat-month-label').textContent =
     `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
 
@@ -265,14 +272,15 @@ function renderCategorySummary(grandTotal) {
 
   el.innerHTML = sorted.map(([cat, amt]) => {
     const pct = grandTotal ? Math.round((amt / grandTotal) * 100) : 0;
+    const scale = Math.min(pct / 100, 1);
     return `
       <div class="category-item">
         <span class="cat-emoji">${emoji(cat)}</span>
         <div class="cat-info">
           <div class="cat-name">${cat} <span style="color:var(--text-muted);font-size:11px">(${pct}%)</span></div>
-          <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
+          <div class="cat-bar-wrap"><div class="cat-bar" style="--progress-scale:${scale}"></div></div>
         </div>
-        <span class="cat-amount">${formatVND(amt)}</span>
+        <span class="cat-amount">${formatAmount(amt, 'VND')}</span>
       </div>`;
   }).join('');
 }
@@ -292,7 +300,7 @@ function renderRecentList() {
         <div class="recent-desc">${escHtml(x.description)}</div>
         <div class="recent-meta">${x.category} · ${formatDate(x.expense_date)}</div>
       </div>
-      <span class="recent-amount">-${formatVND(x.amount)}</span>
+      <span class="recent-amount">-${formatAmount(x.amount, 'VND')}</span>
     </div>`).join('');
 }
 
@@ -312,7 +320,7 @@ function renderTable() {
       </td>
       <td><span class="category-badge">${emoji(x.category)} ${x.category}</span></td>
       <td style="color:var(--text-secondary)">${formatDate(x.expense_date)}</td>
-      <td class="amount-cell">-${formatVND(x.amount)}</td>
+      <td class="amount-cell">-${formatAmount(x.amount, 'VND')}</td>
       <td>
         <div class="action-btns">
           <button class="btn-edit" data-expense-id="${x.id}" type="button">✏️ Sửa</button>
@@ -501,16 +509,52 @@ async function doDelete() {
 }
 
 // ── Modal helpers ────────────────────────────────────────────────
+let activeModalFocusTrap = null;
+
+function setupModalFocusTrap(overlayEl) {
+  if (!overlayEl) return;
+  const focusables = overlayEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last  = focusables[focusables.length - 1];
+
+  const handleKey = (e) => {
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
+  overlayEl.addEventListener('keydown', handleKey);
+  overlayEl._trapCleanup = () => overlayEl.removeEventListener('keydown', handleKey);
+}
+
+function clearModalFocusTrap(overlayEl) {
+  if (overlayEl && overlayEl._trapCleanup) {
+    overlayEl._trapCleanup();
+    overlayEl._trapCleanup = null;
+  }
+}
+
 function openModal() {
   resetForm();
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('input-date').value = today;
-  document.getElementById('modal-overlay').classList.add('open');
-  document.getElementById('input-desc').focus();
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('open');
+  setupModalFocusTrap(overlay);
+  setTimeout(() => document.getElementById('input-desc').focus(), 50);
 }
 
 function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('open');
+  clearModalFocusTrap(overlay);
   resetForm();
 }
 
@@ -577,12 +621,12 @@ function destroyCharts() {
 let currentRange = 'month';
 
 function getChartColors() {
-  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-  return {
-    text:    isDark ? '#9fa8c7' : '#4a5280',
-    grid:    isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-    tooltip: isDark ? '#1e2130' : '#ffffff',
-  };
+  const style = getComputedStyle(document.documentElement);
+  const text  = style.getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const grid  = style.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)';
+  const bgCard = style.getPropertyValue('--bg-card').trim() || '#141824';
+  const accent = style.getPropertyValue('--accent').trim() || '#6366f1';
+  return { text, grid, tooltip: bgCard, accent };
 }
 
 function getFilteredForCharts() {
@@ -644,7 +688,7 @@ function renderPieChart(data) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { color: text, font: { family: 'Inter', size: 12 }, padding: 12 } },
+        legend: { position: 'right', labels: { color: text, font: { family: 'DM Sans', size: 12 }, padding: 12 } },
         tooltip: {
           backgroundColor: tooltip,
           bodyColor: text, titleColor: text,
@@ -724,7 +768,7 @@ function renderLineChart(data) {
       datasets: [{
         label: 'Chi tiêu',
         data: Object.values(dayMap),
-        borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,0.1)',
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.14)',
         borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4,
       }]
     },
@@ -787,6 +831,7 @@ function renderBudgetList(budgets) {
 
   el.innerHTML = budgets.map(b => {
     const pct     = b.amount > 0 ? Math.round((b.spent / b.amount) * 100) : 0;
+    const scale   = Math.min(pct / 100, 1);
     const barClass = pct >= 100 ? 'over' : pct >= 80 ? 'warning' : '';
     const pctClass = pct >= 100 ? 'danger-text' : pct >= 80 ? 'warn-text' : '';
     const warning  = pct >= 80 ? (pct >= 100 ? ' ⚠️ Đã vượt ngân sách!' : ' ⚠️ Gần đến giới hạn!') : '';
@@ -797,11 +842,11 @@ function renderBudgetList(budgets) {
           <div class="budget-amounts">Đã chi: <span>${formatVND(b.spent)}</span> / ${formatVND(b.amount)}</div>
         </div>
         <div class="budget-bar-wrap">
-          <div class="budget-bar ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
+          <div class="budget-bar ${barClass}" style="--progress-scale:${scale}"></div>
         </div>
         <div class="budget-pct ${pctClass}">${pct}%${warning}</div>
         <div class="budget-actions">
-          <button class="btn btn-ghost btn-sm" onclick="deleteBudget(${b.id})">🗑️ Xoá</button>
+          <button class="btn btn-ghost btn-sm btn-budget-delete" data-budget-id="${b.id}" type="button">🗑️ Xoá</button>
         </div>
       </div>`;
   }).join('');
@@ -835,13 +880,25 @@ async function submitBudget(e) {
 }
 
 async function deleteBudget(id) {
+  if (!id) {
+    showToast('❌ Không xác định được ngân sách cần xoá.', 'error');
+    return;
+  }
+
   try {
     await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
     showToast('🗑️ Đã xoá ngân sách.', 'info');
-    loadBudgets();
+    await loadBudgets();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+function handleBudgetListClick(e) {
+  const deleteBtn = e.target.closest('.btn-budget-delete');
+  if (!deleteBtn) return;
+  const id = deleteBtn.dataset.budgetId;
+  deleteBudget(id);
 }
 
 // ── Profile ──────────────────────────────────────────────────────
@@ -890,7 +947,7 @@ async function exportCSV() {
     const expenses = data.data || data;
     const header = 'STT,Mô tả,Danh mục,Ngày,Số tiền,Tiền tệ,Ghi chú,Định kỳ';
     const rows = expenses.map((x, i) =>
-      `${i + 1},"${(x.description||'').replace(/"/g,'""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},${x.currency||'VND'},"${(x.notes||'').replace(/"/g,'""')}",${x.is_recurring ? 'Có' : 'Không'}`
+      `${i + 1},"${(x.description||'').replace(/"/g,'""')}",${x.category},${x.expense_date?.split('T')[0]},${Number(x.amount)},VND,"${(x.notes||'').replace(/"/g,'""')}",${x.is_recurring ? 'Có' : 'Không'}`
     );
     const csv  = [header, ...rows].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -990,6 +1047,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('register-form-wrap').style.display = 'none';
     document.getElementById('login-form-wrap').style.display    = '';
   });
+  document.getElementById('btn-toggle-password').addEventListener('click', () => {
+    const pwd = document.getElementById('login-password');
+    const btn = document.getElementById('btn-toggle-password');
+    const isHidden = pwd.type === 'password';
+    pwd.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? 'Ẩn' : '👁';
+  });
+  document.getElementById('forgot-password-link').addEventListener('click', e => {
+    e.preventDefault();
+    window.location.href = 'https://example.com/forgot-password';
+  });
 
   // Logout
   document.getElementById('btn-logout').addEventListener('click', () => logout());
@@ -1028,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Expense form
   document.getElementById('expense-form').addEventListener('submit', submitExpense);
   document.getElementById('expense-tbody').addEventListener('click', handleExpenseTableClick);
+  document.getElementById('budget-list').addEventListener('click', handleBudgetListClick);
 
   // Delete confirm
   document.getElementById('btn-confirm-delete').addEventListener('click', doDelete);

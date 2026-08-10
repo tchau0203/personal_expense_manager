@@ -82,6 +82,7 @@ describe('POST /api/auth/login', () => {
     const res = await request(app).post('/api/auth/login')
       .send({ username: 'user', password: 'wrongpass' });
     expect(res.status).toBe(401);
+    expect(res.body.error).toContain('Bạn còn 4 lần nhập.');
   });
 
   it('should login successfully', async () => {
