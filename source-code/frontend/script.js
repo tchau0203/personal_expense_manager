@@ -71,13 +71,15 @@ async function apiFetch(path, options = {}) {
     headers: { ...getHeaders(), ...(options.headers || {}) }
   });
 
-  if (res.status === 401) {
-    logout(false);
-    throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-  }
-
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Lỗi ${res.status}`);
+  if (!res.ok) {
+    const isAuthEndpoint = path === '/auth/login' || path === '/auth/register' || path === '/auth/refresh';
+    if (res.status === 401 && !isAuthEndpoint) {
+      logout(false);
+      throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+    }
+    throw new Error(data.error || `Lỗi ${res.status}`);
+  }
   return data;
 }
 
@@ -270,12 +272,13 @@ function renderCategorySummary(grandTotal) {
 
   el.innerHTML = sorted.map(([cat, amt]) => {
     const pct = grandTotal ? Math.round((amt / grandTotal) * 100) : 0;
+    const scale = Math.min(pct / 100, 1);
     return `
       <div class="category-item">
         <span class="cat-emoji">${emoji(cat)}</span>
         <div class="cat-info">
           <div class="cat-name">${cat} <span style="color:var(--text-muted);font-size:11px">(${pct}%)</span></div>
-          <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
+          <div class="cat-bar-wrap"><div class="cat-bar" style="--progress-scale:${scale}"></div></div>
         </div>
         <span class="cat-amount">${formatAmount(amt, 'VND')}</span>
       </div>`;
@@ -506,16 +509,52 @@ async function doDelete() {
 }
 
 // ── Modal helpers ────────────────────────────────────────────────
+let activeModalFocusTrap = null;
+
+function setupModalFocusTrap(overlayEl) {
+  if (!overlayEl) return;
+  const focusables = overlayEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last  = focusables[focusables.length - 1];
+
+  const handleKey = (e) => {
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
+  overlayEl.addEventListener('keydown', handleKey);
+  overlayEl._trapCleanup = () => overlayEl.removeEventListener('keydown', handleKey);
+}
+
+function clearModalFocusTrap(overlayEl) {
+  if (overlayEl && overlayEl._trapCleanup) {
+    overlayEl._trapCleanup();
+    overlayEl._trapCleanup = null;
+  }
+}
+
 function openModal() {
   resetForm();
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('input-date').value = today;
-  document.getElementById('modal-overlay').classList.add('open');
-  document.getElementById('input-desc').focus();
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('open');
+  setupModalFocusTrap(overlay);
+  setTimeout(() => document.getElementById('input-desc').focus(), 50);
 }
 
 function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('open');
+  clearModalFocusTrap(overlay);
   resetForm();
 }
 
@@ -582,12 +621,12 @@ function destroyCharts() {
 let currentRange = 'month';
 
 function getChartColors() {
-  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-  return {
-    text:    isDark ? '#9fa8c7' : '#4a5280',
-    grid:    isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-    tooltip: isDark ? '#1e2130' : '#ffffff',
-  };
+  const style = getComputedStyle(document.documentElement);
+  const text  = style.getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const grid  = style.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)';
+  const bgCard = style.getPropertyValue('--bg-card').trim() || '#141824';
+  const accent = style.getPropertyValue('--accent').trim() || '#6366f1';
+  return { text, grid, tooltip: bgCard, accent };
 }
 
 function getFilteredForCharts() {
@@ -649,7 +688,7 @@ function renderPieChart(data) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { color: text, font: { family: 'Inter', size: 12 }, padding: 12 } },
+        legend: { position: 'right', labels: { color: text, font: { family: 'DM Sans', size: 12 }, padding: 12 } },
         tooltip: {
           backgroundColor: tooltip,
           bodyColor: text, titleColor: text,
@@ -729,7 +768,7 @@ function renderLineChart(data) {
       datasets: [{
         label: 'Chi tiêu',
         data: Object.values(dayMap),
-        borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,0.1)',
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.14)',
         borderWidth: 2, pointRadius: 3, fill: true, tension: 0.4,
       }]
     },
@@ -792,6 +831,7 @@ function renderBudgetList(budgets) {
 
   el.innerHTML = budgets.map(b => {
     const pct     = b.amount > 0 ? Math.round((b.spent / b.amount) * 100) : 0;
+    const scale   = Math.min(pct / 100, 1);
     const barClass = pct >= 100 ? 'over' : pct >= 80 ? 'warning' : '';
     const pctClass = pct >= 100 ? 'danger-text' : pct >= 80 ? 'warn-text' : '';
     const warning  = pct >= 80 ? (pct >= 100 ? ' ⚠️ Đã vượt ngân sách!' : ' ⚠️ Gần đến giới hạn!') : '';
@@ -802,7 +842,7 @@ function renderBudgetList(budgets) {
           <div class="budget-amounts">Đã chi: <span>${formatVND(b.spent)}</span> / ${formatVND(b.amount)}</div>
         </div>
         <div class="budget-bar-wrap">
-          <div class="budget-bar ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
+          <div class="budget-bar ${barClass}" style="--progress-scale:${scale}"></div>
         </div>
         <div class="budget-pct ${pctClass}">${pct}%${warning}</div>
         <div class="budget-actions">
@@ -1006,6 +1046,17 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     document.getElementById('register-form-wrap').style.display = 'none';
     document.getElementById('login-form-wrap').style.display    = '';
+  });
+  document.getElementById('btn-toggle-password').addEventListener('click', () => {
+    const pwd = document.getElementById('login-password');
+    const btn = document.getElementById('btn-toggle-password');
+    const isHidden = pwd.type === 'password';
+    pwd.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? 'Ẩn' : '👁';
+  });
+  document.getElementById('forgot-password-link').addEventListener('click', e => {
+    e.preventDefault();
+    window.location.href = 'https://example.com/forgot-password';
   });
 
   // Logout

@@ -113,7 +113,7 @@ async function login(req, res) {
         }
         const left = MAX_FAILED_ATTEMPTS - newAttempts;
         return res.status(401).json({
-          error: `Tên đăng nhập hoặc mật khẩu không đúng. Còn ${left} lần thử.`
+          error: `Bạn còn ${left} lần nhập.`
         });
       } catch {
         // Nếu cột chưa tồn tại (migration chưa chạy), fallback về thông báo đơn giản
