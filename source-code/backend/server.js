@@ -24,7 +24,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
+      scriptSrc:     ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"],
+      scriptSrcAttr: ["'unsafe-inline'"], // Cho phép onclick handlers trong innerHTML động
       styleSrc:  ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
       fontSrc:   ["'self'", "fonts.gstatic.com"],
       imgSrc:    ["'self'", "data:", "blob:"],
@@ -70,7 +71,7 @@ app.get('/api/health', async (req, res) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: '3.0.0',
+      version: '4.0.0',
       database: 'connected',
       uptime: Math.floor(process.uptime()),
     });
@@ -84,6 +85,11 @@ app.use('/api/auth',      require('./routes/auth.routes'));
 app.use('/api/expenses',  require('./routes/expense.routes'));
 app.use('/api/budgets',   require('./routes/budget.routes'));
 app.use('/api/analytics', require('./routes/analytics.routes'));
+// Phase 4
+app.use('/api/goals',     require('./routes/goal.routes'));
+app.use('/api/reminders', require('./routes/reminder.routes'));
+app.use('/api/reports',   require('./routes/report.routes'));
+app.use('/api/insights',  require('./routes/ai-insights.routes'));
 
 // ── Static Frontend ──────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -106,7 +112,7 @@ app.use((err, req, res, next) => {
 // ── Start ────────────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, () => {
-    logger.info(`Server Phase 3 đang chạy tại http://localhost:${PORT}`);
+    logger.info(`Server Phase 4 đang chạy tại http://localhost:${PORT}`);
   });
 }
 

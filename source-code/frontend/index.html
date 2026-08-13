@@ -9,7 +9,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=3.0.0" />
+  <link rel="stylesheet" href="style.css?v=4.0.0" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
 <body>
   <!--
@@ -130,6 +136,15 @@
         </a>
         <a href="#" class="nav-item" id="nav-list">
           <span class="nav-icon">📋</span><span>Danh sách</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-goals">
+          <span class="nav-icon">🎯</span><span>Mục tiêu</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-reminders">
+          <span class="nav-icon">🔔</span><span>Nhắc nhở</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-insights">
+          <span class="nav-icon">🤖</span><span>AI Insights</span>
         </a>
         <a href="#" class="nav-item" id="nav-profile">
           <span class="nav-icon">👤</span><span>Hồ sơ</span>
@@ -416,6 +431,112 @@
         </div>
       </section>
 
+      <!-- ── Goals Section ── -->
+      <section id="section-goals" class="section">
+        <div class="goals-header-bar">
+          <div>
+            <h2 class="section-heading">🎯 Mục tiêu tiết kiệm</h2>
+            <p class="section-desc">Theo dõi tiến độ các mục tiêu tài chính của bạn</p>
+          </div>
+          <button class="btn btn-primary" id="btn-open-goal-modal">+ Thêm mục tiêu</button>
+        </div>
+        <div id="goals-list" class="goals-grid">
+          <div class="empty-state">Chưa có mục tiêu nào. Hãy tạo mục tiêu đầu tiên!</div>
+        </div>
+      </section>
+
+      <!-- ── Reminders Section ── -->
+      <section id="section-reminders" class="section">
+        <div class="goals-header-bar">
+          <div>
+            <h2 class="section-heading">🔔 Nhắc nhở hóa đơn</h2>
+            <p class="section-desc">Không bao giờ bỏ lỡ hóa đơn hay khoản thanh toán</p>
+          </div>
+          <button class="btn btn-primary" id="btn-open-reminder-modal">+ Thêm nhắc nhở</button>
+        </div>
+        <div id="reminders-list" class="reminders-list">
+          <div class="empty-state">Chưa có nhắc nhở nào.</div>
+        </div>
+      </section>
+
+      <!-- ── AI Insights Section ── -->
+      <section id="section-insights" class="section">
+        <div class="insights-header">
+          <h2 class="section-heading">🤖 AI Insights</h2>
+          <p class="section-desc">Phân tích thói quen chi tiêu và gợi ý tiết kiệm thông minh</p>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="insights-summary-grid" id="insights-summary">
+          <div class="insight-sum-card">
+            <div class="ics-icon">💰</div>
+            <div class="ics-body">
+              <div class="ics-label">Tiết kiệm tháng này</div>
+              <div class="ics-value" id="ins-saved">...</div>
+            </div>
+          </div>
+          <div class="insight-sum-card">
+            <div class="ics-icon">🎯</div>
+            <div class="ics-body">
+              <div class="ics-label">Mục tiêu đang theo dõi</div>
+              <div class="ics-value" id="ins-goals">...</div>
+            </div>
+          </div>
+          <div class="insight-sum-card">
+            <div class="ics-icon">🔔</div>
+            <div class="ics-body">
+              <div class="ics-label">Nhắc nhở sắp đến hạn</div>
+              <div class="ics-value" id="ins-reminders">...</div>
+            </div>
+          </div>
+          <div class="insight-sum-card">
+            <div class="ics-icon">📊</div>
+            <div class="ics-body">
+              <div class="ics-label">Tỷ lệ tiết kiệm</div>
+              <div class="ics-value" id="ins-saving-rate">...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card" style="margin-top:24px">
+          <div class="card-header">
+            <h3>💡 Gợi ý tài chính cá nhân hóa</h3>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-tips">🔄 Làm mới</button>
+          </div>
+          <div class="card-body" id="insights-tips">
+            <div class="empty-state small">Đang tải gợi ý...</div>
+          </div>
+        </div>
+
+        <!-- Trends -->
+        <div class="card" style="margin-top:24px">
+          <div class="card-header">
+            <h3>📈 Xu hướng chi tiêu</h3>
+            <div class="time-filter-group">
+              <button class="time-btn active" data-months="3" id="trend-3m">3 tháng</button>
+              <button class="time-btn" data-months="6" id="trend-6m">6 tháng</button>
+              <button class="time-btn" data-months="12" id="trend-12m">12 tháng</button>
+            </div>
+          </div>
+          <div class="card-body" id="insights-trends">
+            <div class="empty-state small">Đang tải xu hướng...</div>
+          </div>
+        </div>
+
+        <!-- Auto-categorize tool -->
+        <div class="card" style="margin-top:24px">
+          <div class="card-header"><h3>🏷️ Gợi ý phân loại tự động</h3></div>
+          <div class="card-body">
+            <div class="auto-cat-tool">
+              <input type="text" id="auto-cat-input" class="search-box" placeholder="Nhập mô tả chi tiêu... (VD: Cơm phở buổi sáng)" style="flex:1" />
+              <button class="btn btn-primary" id="btn-auto-cat">Phân loại</button>
+            </div>
+            <div id="auto-cat-result" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -596,6 +717,122 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Goal Modal -->
+  <div class="modal-overlay" id="goal-modal-overlay">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
+      <div class="modal-header">
+        <h2 id="goal-modal-title">Thêm mục tiêu tiết kiệm</h2>
+        <button class="modal-close" id="goal-modal-close">&times;</button>
+      </div>
+      <form id="goal-form" class="modal-body" novalidate>
+        <input type="hidden" id="goal-edit-id" value="" />
+        <div class="form-group">
+          <label for="goal-title">Tên mục tiêu <span class="required">*</span></label>
+          <input type="text" id="goal-title" placeholder="VD: Mua xe, Du lịch Nhật..." maxlength="200" required />
+          <span class="field-error" id="err-goal-title"></span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="goal-target">Số tiền mục tiêu (₫) <span class="required">*</span></label>
+            <input type="number" id="goal-target" placeholder="VD: 10000000" min="1" required />
+            <span class="field-error" id="err-goal-target"></span>
+          </div>
+          <div class="form-group">
+            <label for="goal-current">Đã tiết kiệm được (₫)</label>
+            <input type="number" id="goal-current" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="goal-category">Danh mục</label>
+            <select id="goal-category" class="filter-select">
+              <option value="">-- Không có --</option>
+              <option value="Ăn uống">🍜 Ăn uống</option>
+              <option value="Đi lại">🚗 Đi lại</option>
+              <option value="Mua sắm">🛍️ Mua sắm</option>
+              <option value="Giải trí">🎮 Giải trí</option>
+              <option value="Y tế">💊 Y tế</option>
+              <option value="Giáo dục">📚 Giáo dục</option>
+              <option value="Tiền nhà">🏠 Tiền nhà</option>
+              <option value="Khác">📦 Khác</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="goal-deadline">Deadline</label>
+            <input type="date" id="goal-deadline" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="goal-modal-cancel">Huỷ</button>
+          <button type="submit" class="btn btn-primary" id="btn-goal-submit">
+            <span class="btn-text">Lưu mục tiêu</span>
+            <span class="btn-loader" style="display:none">⏳</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reminder Modal -->
+  <div class="modal-overlay" id="reminder-modal-overlay">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="reminder-modal-title">
+      <div class="modal-header">
+        <h2 id="reminder-modal-title">Thêm nhắc nhở</h2>
+        <button class="modal-close" id="reminder-modal-close">&times;</button>
+      </div>
+      <form id="reminder-form" class="modal-body" novalidate>
+        <input type="hidden" id="reminder-edit-id" value="" />
+        <div class="form-group">
+          <label for="reminder-title">Tiêu đề <span class="required">*</span></label>
+          <input type="text" id="reminder-title" placeholder="VD: Tiền nhà, Tiền điện..." maxlength="200" required />
+          <span class="field-error" id="err-reminder-title"></span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reminder-amount">Số tiền (₫)</label>
+            <input type="number" id="reminder-amount" placeholder="Tuỳ chọn" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="reminder-category">Danh mục</label>
+            <select id="reminder-category" class="filter-select">
+              <option value="">-- Không có --</option>
+              <option value="Ăn uống">🍜 Ăn uống</option>
+              <option value="Đi lại">🚗 Đi lại</option>
+              <option value="Mua sắm">🛍️ Mua sắm</option>
+              <option value="Giải trí">🎮 Giải trí</option>
+              <option value="Y tế">💊 Y tế</option>
+              <option value="Giáo dục">📚 Giáo dục</option>
+              <option value="Tiền nhà">🏠 Tiền nhà</option>
+              <option value="Khác">📦 Khác</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reminder-due">Ngày đến hạn <span class="required">*</span></label>
+            <input type="date" id="reminder-due" required />
+            <span class="field-error" id="err-reminder-due"></span>
+          </div>
+          <div class="form-group">
+            <label for="reminder-freq">Tần suất</label>
+            <select id="reminder-freq" class="filter-select">
+              <option value="once">Một lần</option>
+              <option value="monthly">Hàng tháng</option>
+              <option value="weekly">Hàng tuần</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="reminder-modal-cancel">Huỷ</button>
+          <button type="submit" class="btn btn-primary" id="btn-reminder-submit">
+            <span class="btn-text">Lưu nhắc nhở</span>
+            <span class="btn-loader" style="display:none">⏳</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js?v=20260813b"></script>
 </body>
 </html>

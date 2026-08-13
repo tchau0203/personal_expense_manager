@@ -165,6 +165,8 @@ function showApp() {
   updateSidebarUser();
   loadExpenses();
   initBudgetSelectors();
+  // Phase 4
+  registerServiceWorker();
 }
 
 function updateSidebarUser() {
@@ -1068,6 +1070,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-budget').addEventListener('click',    e => { e.preventDefault(); navigate('budget'); });
   document.getElementById('nav-add').addEventListener('click',       e => { e.preventDefault(); openModal(); });
   document.getElementById('nav-list').addEventListener('click',      e => { e.preventDefault(); navigate('list'); });
+  document.getElementById('nav-goals').addEventListener('click',     e => { e.preventDefault(); navigate('goals'); });
+  document.getElementById('nav-reminders').addEventListener('click', e => { e.preventDefault(); navigate('reminders'); });
+  document.getElementById('nav-insights').addEventListener('click',  e => { e.preventDefault(); navigate('insights'); });
   document.getElementById('nav-profile').addEventListener('click',   e => { e.preventDefault(); navigate('profile'); });
   document.getElementById('link-view-all').addEventListener('click', e => { e.preventDefault(); navigate('list'); });
 
@@ -1499,3 +1504,489 @@ loadProfile = async function() {
   await loadAuditLog();
   await loadNotificationSettings();
 };
+
+// ================================================================
+// PHASE 4 — Goals, Reminders, AI Insights, PWA
+// ================================================================
+
+// ── navigate() override to handle Phase 4 sections ──────────────
+const _originalNavigate = navigate;
+navigate = function(page) {
+  const p4pages = ['goals', 'reminders', 'insights'];
+  if (!p4pages.includes(page)) {
+    return _originalNavigate(page);
+  }
+  // Deactivate all sections
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const section = document.getElementById(`section-${page}`);
+  const navEl   = document.getElementById(`nav-${page}`);
+  if (section) section.classList.add('active');
+  if (navEl)   navEl.classList.add('active');
+
+  const titles = { goals: 'Mục tiêu tiết kiệm', reminders: 'Nhắc nhở hóa đơn', insights: 'AI Insights' };
+  const subs   = {
+    goals:     'Theo dõi tiến độ các mục tiêu tài chính của bạn',
+    reminders: 'Không bao giờ bỏ lỡ hóa đơn hay khoản thanh toán',
+    insights:  'Phân tích thói quen chi tiêu và gợi ý tiết kiệm thông minh',
+  };
+  document.getElementById('page-title').textContent    = titles[page] || page;
+  document.getElementById('page-subtitle').textContent = subs[page] || '';
+
+  if (page === 'goals')     loadGoals();
+  if (page === 'reminders') loadReminders();
+  if (page === 'insights')  loadInsights();
+};
+
+// ── Helpers ──────────────────────────────────────────────────────
+function openP4Modal(overlayId, titleEl, titleText, resetFn) {
+  document.getElementById(titleEl).textContent = titleText;
+  resetFn();
+  document.getElementById(overlayId).classList.add('open');
+}
+function closeP4Modal(overlayId) {
+  document.getElementById(overlayId).classList.remove('open');
+}
+
+// ── GOALS MODULE ─────────────────────────────────────────────────
+let editingGoalId = null;
+
+async function loadGoals() {
+  const container = document.getElementById('goals-list');
+  if (!container) { console.error('[Goals] goals-list container not found'); return; }
+  try {
+    const goals = await apiFetch('/goals');
+    console.log('[Goals] Loaded:', goals.length, 'goals');
+    if (!goals.length) {
+      container.innerHTML = '<div class="empty-state">Chưa có mục tiêu nào. Hãy tạo mục tiêu đầu tiên! 🎯</div>';
+      return;
+    }
+    container.innerHTML = goals.map(renderGoalCard).join('');
+  } catch (e) {
+    console.error('[Goals] loadGoals error:', e);
+    container.innerHTML = `<div class="empty-state">❌ ${escHtml(e.message)}</div>`;
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+function renderGoalCard(g) {
+  const pct = g.target_amount > 0 ? Math.min((g.current_amount / g.target_amount) * 100, 100) : 0;
+  const completed = pct >= 100 || g.status === 'completed';
+  const deadlineHtml = g.deadline ? (() => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dl    = new Date(g.deadline);
+    const diff  = Math.ceil((dl - today) / 86400000);
+    let cls = 'upcoming';
+    if (diff < 0)  cls = 'overdue';
+    else if (diff <= 7) cls = 'soon';
+    const label = diff < 0 ? `Hết hạn ${Math.abs(diff)} ngày trước` : diff === 0 ? 'Hôm nay!' : `Còn ${diff} ngày`;
+    return `<span class="goal-deadline ${cls}">📅 ${escHtml(label)}</span>`;
+  })() : '';
+
+  return `
+    <div class="goal-card ${completed ? 'completed' : ''}" data-id="${g.id}">
+      <div class="goal-card-header">
+        <div>
+          <p class="goal-card-title">${escHtml(g.title)}</p>
+          <p class="goal-card-category">${g.category ? `${emoji(g.category)} ${escHtml(g.category)}` : 'Không phân loại'}</p>
+        </div>
+        <div class="goal-card-actions">
+          <button title="Chỉnh sửa" onclick="openEditGoal(${g.id})">✏️</button>
+          <button title="Xoá" onclick="deleteGoal(${g.id})">🗑️</button>
+        </div>
+      </div>
+      <div class="goal-amounts">
+        <span class="goal-current">${formatVND(g.current_amount)}</span>
+        <span class="goal-target">/ ${formatVND(g.target_amount)}</span>
+      </div>
+      <div class="goal-progress-bar">
+        <div class="goal-progress-fill" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+      <div class="goal-meta">
+        <span class="goal-pct">${pct.toFixed(0)}% ${completed ? '✅' : ''}</span>
+        ${deadlineHtml}
+      </div>
+      <span class="goal-status-badge ${completed ? 'completed' : 'active'}">
+        ${completed ? '✅ Hoàn thành' : '🔄 Đang tiến hành'}
+      </span>
+    </div>
+  `;
+}
+
+function resetGoalForm() {
+  editingGoalId = null;
+  document.getElementById('goal-edit-id').value  = '';
+  document.getElementById('goal-title').value    = '';
+  document.getElementById('goal-target').value   = '';
+  document.getElementById('goal-current').value  = '';
+  document.getElementById('goal-category').value = '';
+  document.getElementById('goal-deadline').value = '';
+  document.getElementById('err-goal-title').textContent  = '';
+  document.getElementById('err-goal-target').textContent = '';
+}
+
+async function openEditGoal(id) {
+  console.log('[Goals] openEditGoal called with id:', id);
+  try {
+    const goals = await apiFetch('/goals');
+    const g = goals.find(x => Number(x.id) === Number(id));
+    console.log('[Goals] Found goal:', g);
+    if (!g) { showToast('❌ Không tìm thấy mục tiêu.', 'error'); return; }
+    editingGoalId = id;
+    document.getElementById('goal-modal-title').textContent = 'Chỉnh sửa mục tiêu';
+    document.getElementById('goal-edit-id').value    = g.id;
+    document.getElementById('goal-title').value       = g.title;
+    document.getElementById('goal-target').value      = g.target_amount;
+    document.getElementById('goal-current').value     = g.current_amount;
+    document.getElementById('goal-category').value    = g.category || '';
+    document.getElementById('goal-deadline').value    = g.deadline ? g.deadline.split('T')[0] : '';
+    document.getElementById('goal-modal-overlay').classList.add('open');
+  } catch (e) {
+    console.error('[Goals] openEditGoal error:', e);
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+async function submitGoal(e) {
+  e.preventDefault();
+  const title   = document.getElementById('goal-title').value.trim();
+  const target  = parseFloat(document.getElementById('goal-target').value);
+  const current = parseFloat(document.getElementById('goal-current').value) || 0;
+  const cat     = document.getElementById('goal-category').value || null;
+  const deadline = document.getElementById('goal-deadline').value || null;
+  const btn     = document.getElementById('btn-goal-submit');
+
+  document.getElementById('err-goal-title').textContent  = '';
+  document.getElementById('err-goal-target').textContent = '';
+
+  let valid = true;
+  if (!title)              { document.getElementById('err-goal-title').textContent  = 'Vui lòng nhập tên mục tiêu.'; valid = false; }
+  if (!target || target <= 0) { document.getElementById('err-goal-target').textContent = 'Số tiền mục tiêu phải lớn hơn 0.'; valid = false; }
+  if (!valid) return;
+
+  setLoading(btn, true);
+  try {
+    const body = { title, target_amount: target, current_amount: current, category: cat, deadline };
+    if (editingGoalId) {
+      await apiFetch(`/goals/${editingGoalId}`, { method: 'PUT', body: JSON.stringify(body) });
+      showToast('✅ Đã cập nhật mục tiêu!', 'success');
+    } else {
+      await apiFetch('/goals', { method: 'POST', body: JSON.stringify(body) });
+      showToast('🎯 Đã tạo mục tiêu mới!', 'success');
+    }
+    closeP4Modal('goal-modal-overlay');
+    loadGoals();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+async function deleteGoal(id) {
+  console.log('[Goals] deleteGoal called with id:', id);
+  if (!confirm('Bạn có chắc muốn xoá mục tiêu này?')) return;
+  try {
+    await apiFetch(`/goals/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Đã xoá mục tiêu.', 'success');
+    loadGoals();
+  } catch (e) {
+    console.error('[Goals] deleteGoal error:', e);
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+// Expose goal functions to global window scope for inline onclick handlers
+window.openEditGoal = openEditGoal;
+window.deleteGoal   = deleteGoal;
+
+// ── REMINDERS MODULE ─────────────────────────────────────────────
+let editingReminderId = null;
+
+async function loadReminders() {
+  const container = document.getElementById('reminders-list');
+  try {
+    const reminders = await apiFetch('/reminders');
+    if (!reminders.length) {
+      container.innerHTML = '<div class="empty-state">Chưa có nhắc nhở nào. 🔔</div>';
+      return;
+    }
+    container.innerHTML = reminders.map(renderReminderItem).join('');
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">${escHtml(e.message)}</div>`;
+  }
+}
+
+const FREQ_LABEL = { once: 'Một lần', weekly: 'Hàng tuần', monthly: 'Hàng tháng' };
+
+function renderReminderItem(r) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(r.due_date);
+  const diff  = Math.ceil((due - today) / 86400000);
+  let cls = 'upcoming', badge = 'Sắp tới', statusCls = 'upcoming';
+  if (diff < 0)  { cls = 'overdue';  badge = `Quá hạn ${Math.abs(diff)} ngày`; statusCls = 'overdue'; }
+  else if (diff <= 3) { cls = 'due-soon'; badge = diff === 0 ? 'Hôm nay!' : `Còn ${diff} ngày`; statusCls = 'due-soon'; }
+  else           { badge = `Còn ${diff} ngày`; }
+
+  const catIcon = r.category ? emoji(r.category) : '🔔';
+
+  return `
+    <div class="reminder-item ${cls}" data-id="${r.id}">
+      <div class="reminder-icon">${catIcon}</div>
+      <div class="reminder-body">
+        <p class="reminder-title">${escHtml(r.title)}</p>
+        <div class="reminder-meta">
+          <span class="reminder-due">📅 ${due.toLocaleDateString('vi-VN')}</span>
+          <span class="reminder-freq">🔁 ${FREQ_LABEL[r.frequency] || r.frequency}</span>
+          ${r.amount ? `<span class="reminder-amount">💵 ${formatVND(r.amount)}</span>` : ''}
+        </div>
+      </div>
+      <span class="reminder-status-badge ${statusCls}">${escHtml(badge)}</span>
+      <div class="reminder-actions">
+        <button title="Chỉnh sửa" onclick="openEditReminder(${r.id})">✏️</button>
+        <button title="Xoá" onclick="deleteReminder(${r.id})">🗑️</button>
+      </div>
+    </div>
+  `;
+}
+
+function resetReminderForm() {
+  editingReminderId = null;
+  document.getElementById('reminder-edit-id').value    = '';
+  document.getElementById('reminder-title').value      = '';
+  document.getElementById('reminder-amount').value     = '';
+  document.getElementById('reminder-category').value   = '';
+  document.getElementById('reminder-due').value        = '';
+  document.getElementById('reminder-freq').value       = 'once';
+  document.getElementById('err-reminder-title').textContent = '';
+  document.getElementById('err-reminder-due').textContent   = '';
+}
+
+async function openEditReminder(id) {
+  try {
+    const reminders = await apiFetch('/reminders');
+    const r = reminders.find(x => x.id === id);
+    if (!r) return;
+    editingReminderId = id;
+    document.getElementById('reminder-modal-title').textContent = 'Chỉnh sửa nhắc nhở';
+    document.getElementById('reminder-edit-id').value   = r.id;
+    document.getElementById('reminder-title').value     = r.title;
+    document.getElementById('reminder-amount').value    = r.amount || '';
+    document.getElementById('reminder-category').value  = r.category || '';
+    document.getElementById('reminder-due').value       = r.due_date ? r.due_date.split('T')[0] : '';
+    document.getElementById('reminder-freq').value      = r.frequency;
+    document.getElementById('reminder-modal-overlay').classList.add('open');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+async function submitReminder(e) {
+  e.preventDefault();
+  const title    = document.getElementById('reminder-title').value.trim();
+  const amount   = parseFloat(document.getElementById('reminder-amount').value) || null;
+  const category = document.getElementById('reminder-category').value || null;
+  const due_date = document.getElementById('reminder-due').value;
+  const frequency= document.getElementById('reminder-freq').value;
+  const btn      = document.getElementById('btn-reminder-submit');
+
+  document.getElementById('err-reminder-title').textContent = '';
+  document.getElementById('err-reminder-due').textContent   = '';
+
+  let valid = true;
+  if (!title)    { document.getElementById('err-reminder-title').textContent = 'Vui lòng nhập tiêu đề.'; valid = false; }
+  if (!due_date) { document.getElementById('err-reminder-due').textContent   = 'Vui lòng chọn ngày đến hạn.'; valid = false; }
+  if (!valid) return;
+
+  setLoading(btn, true);
+  try {
+    const body = { title, amount, category, due_date, frequency };
+    if (editingReminderId) {
+      await apiFetch(`/reminders/${editingReminderId}`, { method: 'PUT', body: JSON.stringify(body) });
+      showToast('✅ Đã cập nhật nhắc nhở!', 'success');
+    } else {
+      await apiFetch('/reminders', { method: 'POST', body: JSON.stringify(body) });
+      showToast('🔔 Đã thêm nhắc nhở!', 'success');
+    }
+    closeP4Modal('reminder-modal-overlay');
+    loadReminders();
+
+    // Check upcoming and notify
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due   = new Date(due_date);
+    const diff  = Math.ceil((due - today) / 86400000);
+    if (diff >= 0 && diff <= 3) {
+      addNotification('🔔 Nhắc nhở sắp đến hạn', `${title}: ${diff === 0 ? 'Hôm nay!' : `Còn ${diff} ngày`}`, 'warning');
+    }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+async function deleteReminder(id) {
+  if (!confirm('Bạn có chắc muốn xoá nhắc nhở này?')) return;
+  try {
+    await apiFetch(`/reminders/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Đã xoá nhắc nhở.', 'success');
+    loadReminders();
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+// ── AI INSIGHTS MODULE ───────────────────────────────────────────
+async function loadInsights() {
+  loadInsightSummary();
+  loadInsightTips();
+  loadInsightTrends(3);
+}
+
+async function loadInsightSummary() {
+  try {
+    const data = await apiFetch('/insights/summary');
+    const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    el('ins-saved',       data.saved != null ? formatVND(data.saved) : 'N/A');
+    el('ins-goals',       `${data.goals.active} mục tiêu`);
+    el('ins-reminders',   `${data.upcomingReminders} nhắc nhở`);
+    el('ins-saving-rate', data.savingRate != null ? `${data.savingRate.toFixed(1)}%` : 'N/A');
+  } catch (e) { /* silent */ }
+}
+
+async function loadInsightTips() {
+  const container = document.getElementById('insights-tips');
+  try {
+    const data = await apiFetch('/insights/tips');
+    if (!data.tips || !data.tips.length) {
+      container.innerHTML = '<div class="empty-state small">Không có gợi ý nào.</div>';
+      return;
+    }
+    container.innerHTML = `<div class="tips-grid">${
+      data.tips.map(t => `
+        <div class="tip-card">
+          <div class="tip-icon">${t.icon}</div>
+          <div class="tip-body">
+            ${t.category ? `<div class="tip-category">${escHtml(t.category)}</div>` : ''}
+            <div class="tip-text">${escHtml(t.tip)}</div>
+          </div>
+        </div>
+      `).join('')
+    }</div>`;
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state small">Không thể tải gợi ý.</div>';
+  }
+}
+
+async function loadInsightTrends(months = 3) {
+  const container = document.getElementById('insights-trends');
+  try {
+    const data = await apiFetch(`/insights/trends?months=${months}`);
+    if (!data.months || !data.months.length) {
+      container.innerHTML = '<div class="empty-state small">Chưa có đủ dữ liệu xu hướng.</div>';
+      return;
+    }
+
+    const trendHtml = data.trend ? (() => {
+      const dir = data.trend.direction;
+      const pct = data.trend.percent != null ? `${Math.abs(data.trend.percent).toFixed(1)}%` : '';
+      return `<div style="margin-bottom:12px;font-size:14px;color:var(--text-secondary)">
+        So với tháng trước: <strong class="trend-${dir}">${dir === 'up' ? '↑' : '↓'} ${pct}</strong>
+        ${dir === 'up' ? 'chi tiêu tăng' : 'chi tiêu giảm'}
+      </div>`;
+    })() : '';
+
+    const tableRows = data.months.map(m => `
+      <tr>
+        <td>${m.month}/${m.year}</td>
+        <td>${formatVND(m.total)}</td>
+        <td>${Object.keys(m.categories).length} danh mục</td>
+      </tr>
+    `).join('');
+
+    container.innerHTML = `
+      ${trendHtml}
+      <table class="trends-table">
+        <thead><tr><th>Tháng</th><th>Tổng chi</th><th>Danh mục</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    `;
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state small">Không thể tải xu hướng.</div>';
+  }
+}
+
+async function doAutoCategorize() {
+  const input  = document.getElementById('auto-cat-input').value.trim();
+  const result = document.getElementById('auto-cat-result');
+  if (!input) { result.innerHTML = ''; return; }
+  try {
+    const data = await apiFetch(`/insights/auto-categorize?description=${encodeURIComponent(input)}`);
+    if (data.category) {
+      result.innerHTML = `<div class="auto-cat-result-badge">${emoji(data.category)} Gợi ý: <strong>${escHtml(data.category)}</strong></div>`;
+    } else {
+      result.innerHTML = '<div class="auto-cat-no-match">Không tìm được danh mục phù hợp. Vui lòng phân loại thủ công.</div>';
+    }
+  } catch (e) {
+    result.innerHTML = '<div class="auto-cat-no-match">Lỗi khi phân loại.</div>';
+  }
+}
+
+// ── PWA SERVICE WORKER ───────────────────────────────────────────
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+      .catch(err => console.warn('[PWA] SW registration failed:', err));
+  }
+}
+
+// ── Phase 4 Event Listeners (DOMContentLoaded extension) ─────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Goal modal
+  const btnOpenGoal    = document.getElementById('btn-open-goal-modal');
+  const goalModalClose = document.getElementById('goal-modal-close');
+  const goalModalCancel= document.getElementById('goal-modal-cancel');
+  const goalForm       = document.getElementById('goal-form');
+  const goalOverlay    = document.getElementById('goal-modal-overlay');
+
+  if (btnOpenGoal) btnOpenGoal.addEventListener('click', () => openP4Modal('goal-modal-overlay', 'goal-modal-title', 'Thêm mục tiêu tiết kiệm', resetGoalForm));
+  if (goalModalClose)  goalModalClose.addEventListener('click',  () => closeP4Modal('goal-modal-overlay'));
+  if (goalModalCancel) goalModalCancel.addEventListener('click', () => closeP4Modal('goal-modal-overlay'));
+  if (goalOverlay) goalOverlay.addEventListener('click', e => { if (e.target === goalOverlay) closeP4Modal('goal-modal-overlay'); });
+  if (goalForm)    goalForm.addEventListener('submit', submitGoal);
+
+  // Reminder modal
+  const btnOpenReminder    = document.getElementById('btn-open-reminder-modal');
+  const reminderModalClose = document.getElementById('reminder-modal-close');
+  const reminderModalCancel= document.getElementById('reminder-modal-cancel');
+  const reminderForm       = document.getElementById('reminder-form');
+  const reminderOverlay    = document.getElementById('reminder-modal-overlay');
+
+  if (btnOpenReminder) btnOpenReminder.addEventListener('click', () => openP4Modal('reminder-modal-overlay', 'reminder-modal-title', 'Thêm nhắc nhở', resetReminderForm));
+  if (reminderModalClose)  reminderModalClose.addEventListener('click',  () => closeP4Modal('reminder-modal-overlay'));
+  if (reminderModalCancel) reminderModalCancel.addEventListener('click', () => closeP4Modal('reminder-modal-overlay'));
+  if (reminderOverlay) reminderOverlay.addEventListener('click', e => { if (e.target === reminderOverlay) closeP4Modal('reminder-modal-overlay'); });
+  if (reminderForm)    reminderForm.addEventListener('submit', submitReminder);
+
+  // AI Insights
+  const btnRefreshTips = document.getElementById('btn-refresh-tips');
+  if (btnRefreshTips) btnRefreshTips.addEventListener('click', loadInsightTips);
+
+  const btnAutoCat = document.getElementById('btn-auto-cat');
+  if (btnAutoCat) btnAutoCat.addEventListener('click', doAutoCategorize);
+
+  const autoCatInput = document.getElementById('auto-cat-input');
+  if (autoCatInput) autoCatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAutoCategorize(); } });
+
+  // Trends time filter
+  document.querySelectorAll('[data-months]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-months]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadInsightTrends(parseInt(btn.dataset.months));
+    });
+  });
+});
+

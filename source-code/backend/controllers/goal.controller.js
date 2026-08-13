@@ -34,7 +34,8 @@ async function createGoal(req, res) {
 }
 
 async function updateGoal(req, res) {
-  const { title, category, target_amount, current_amount = 0, deadline = null } = req.body;
+  const { title, category, target_amount, deadline = null } = req.body;
+  const current_amount = req.body.current_amount !== undefined ? req.body.current_amount : 0;
   if (!title || !target_amount || Number(target_amount) <= 0) {
     return res.status(400).json({ error: 'Vui lòng nhập tên mục tiêu và số tiền mục tiêu hợp lệ.' });
   }
@@ -51,7 +52,7 @@ async function updateGoal(req, res) {
          updated_at = NOW()
        WHERE id = $6 AND user_id = $7
        RETURNING *`,
-      [title.trim(), category || null, Number(target_amount), Number(current_amount), deadline || null, req.params.id, req.user.id]
+      [title.trim(), category || null, Number(target_amount), Number(current_amount), deadline || null, parseInt(req.params.id), req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Không tìm thấy mục tiêu.' });
     return res.json(result.rows[0]);
@@ -65,7 +66,7 @@ async function deleteGoal(req, res) {
     const pool = getPool();
     const result = await pool.query(
       'DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id',
-      [req.params.id, req.user.id]
+      [parseInt(req.params.id), req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Không tìm thấy mục tiêu.' });
     return res.json({ success: true });

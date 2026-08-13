@@ -852,3 +852,285 @@ textarea::placeholder { color: var(--text-muted); }
   background: var(--accent-light); color: var(--accent);
   margin-left: 4px;
 }
+
+/* ════════════════════════════════════════════════════════════
+   PHASE 4 — Goals, Reminders, Insights
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Section headings ──────────────────────────────────────── */
+.section-heading {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px; font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.section-desc {
+  font-size: 14px; color: var(--text-secondary);
+  margin: 0;
+}
+.goals-header-bar {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 16px;
+  margin-bottom: 24px; flex-wrap: wrap;
+}
+
+/* ── Goals Grid ────────────────────────────────────────────── */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.goal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: transform var(--transition), box-shadow var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.goal-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gradient-1);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.goal-card.completed::before { background: var(--gradient-4); }
+.goal-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.goal-card-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 14px;
+}
+.goal-card-title {
+  font-weight: 600; font-size: 15px; color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.goal-card-category {
+  font-size: 12px; color: var(--text-secondary);
+}
+.goal-card-actions { display: flex; gap: 6px; }
+.goal-card-actions button {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px;
+  padding: 4px; border-radius: 6px;
+  transition: color var(--transition), background var(--transition);
+}
+.goal-card-actions button:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.goal-amounts {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px;
+}
+.goal-current {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px; font-weight: 700; color: var(--accent);
+}
+.goal-target { font-size: 13px; color: var(--text-muted); }
+
+.goal-progress-bar {
+  height: 8px; background: var(--bg-hover);
+  border-radius: 100px; overflow: hidden;
+  margin-bottom: 10px;
+}
+.goal-progress-fill {
+  height: 100%;
+  background: var(--gradient-1);
+  border-radius: 100px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.goal-card.completed .goal-progress-fill { background: var(--gradient-4); }
+
+.goal-meta {
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: var(--text-muted);
+}
+.goal-pct { font-weight: 600; color: var(--accent); }
+.goal-card.completed .goal-pct { color: var(--success); }
+.goal-deadline { display: flex; align-items: center; gap: 4px; }
+.goal-deadline.overdue { color: var(--danger); }
+.goal-deadline.soon { color: var(--warning); }
+
+.goal-status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 100px;
+  font-size: 11px; font-weight: 600;
+  margin-top: 10px;
+}
+.goal-status-badge.active   { background: var(--accent-light); color: var(--accent); }
+.goal-status-badge.completed{ background: var(--success-light); color: var(--success); }
+
+/* ── Reminders List ────────────────────────────────────────── */
+.reminders-list { display: flex; flex-direction: column; gap: 12px; }
+
+.reminder-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px;
+  transition: transform var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+.reminder-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+.reminder-item.overdue  { border-left: 3px solid var(--danger); }
+.reminder-item.due-soon { border-left: 3px solid var(--warning); }
+.reminder-item.upcoming { border-left: 3px solid var(--accent); }
+
+.reminder-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--accent-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.reminder-item.overdue  .reminder-icon { background: var(--danger-light); }
+.reminder-item.due-soon .reminder-icon { background: var(--warning-light); }
+
+.reminder-body { flex: 1; min-width: 0; }
+.reminder-title {
+  font-weight: 600; font-size: 15px; color: var(--text-primary);
+  margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.reminder-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+.reminder-due, .reminder-freq, .reminder-amount {
+  font-size: 12px; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 4px;
+}
+.reminder-item.overdue  .reminder-due { color: var(--danger);  font-weight: 600; }
+.reminder-item.due-soon .reminder-due { color: var(--warning); font-weight: 600; }
+
+.reminder-status-badge {
+  padding: 3px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.reminder-status-badge.overdue  { background: var(--danger-light);  color: var(--danger); }
+.reminder-status-badge.due-soon { background: var(--warning-light); color: var(--warning); }
+.reminder-status-badge.upcoming { background: var(--accent-light);  color: var(--accent); }
+
+.reminder-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.reminder-actions button {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px;
+  padding: 6px; border-radius: 6px;
+  transition: color var(--transition), background var(--transition);
+}
+.reminder-actions button:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ── Insights Section ──────────────────────────────────────── */
+.insights-header { margin-bottom: 24px; }
+
+.insights-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.insight-sum-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex; align-items: center; gap: 16px;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.insight-sum-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
+.ics-icon {
+  font-size: 28px; flex-shrink: 0;
+  width: 52px; height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--accent-light);
+  display: flex; align-items: center; justify-content: center;
+}
+.ics-body { min-width: 0; }
+.ics-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.ics-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px; font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── AI Tips ───────────────────────────────────────────────── */
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.tip-card {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex; gap: 14px; align-items: flex-start;
+  transition: border-color var(--transition);
+}
+.tip-card:hover { border-color: var(--accent); }
+.tip-icon {
+  font-size: 24px; flex-shrink: 0;
+  width: 44px; height: 44px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.tip-body {}
+.tip-category {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.tip-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── Trend display ─────────────────────────────────────────── */
+.trends-table { width: 100%; border-collapse: collapse; }
+.trends-table th, .trends-table td {
+  padding: 8px 12px; text-align: right;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.trends-table th { color: var(--text-muted); font-weight: 600; text-align: left; }
+.trends-table td:first-child { text-align: left; color: var(--text-primary); font-weight: 500; }
+.trend-up   { color: var(--danger); }
+.trend-down { color: var(--success); }
+
+/* ── Auto-categorize tool ──────────────────────────────────── */
+.auto-cat-tool {
+  display: flex; gap: 12px; align-items: center;
+  flex-wrap: wrap;
+}
+.auto-cat-result-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: var(--radius-md);
+  background: var(--accent-light);
+  color: var(--accent); font-weight: 600;
+  font-size: 14px;
+  animation: fadeInUp 0.3s ease;
+}
+.auto-cat-no-match {
+  color: var(--text-muted); font-size: 14px; font-style: italic;
+  padding: 10px 0;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive overrides for Phase 4 ─────────────────────── */
+@media (max-width: 768px) {
+  .goals-grid { grid-template-columns: 1fr; }
+  .insights-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .tips-grid { grid-template-columns: 1fr; }
+  .auto-cat-tool { flex-direction: column; }
+  .auto-cat-tool .btn { width: 100%; }
+  .reminder-item { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .insights-summary-grid { grid-template-columns: 1fr; }
+}
+
