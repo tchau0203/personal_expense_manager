@@ -8,7 +8,7 @@ function getPool() {
   if (!_pool) {
     _pool = new Pool({
       host:     process.env.DB_HOST     || 'localhost',
-      port:     parseInt(process.env.DB_PORT) || 5433,
+      port:     parseInt(process.env.DB_PORT) || 5432,
       database: process.env.DB_DATABASE || 'personal_expense_manager',
       user:     process.env.DB_USER     || 'postgres',
       password: process.env.DB_PASSWORD,
