@@ -2,7 +2,7 @@ const request = require('supertest');
 const app     = require('../server');
 
 // Mock getPool to avoid real DB in tests
-jest.mock('../../database/database', () => {
+jest.mock('../database/database', () => {
   const mockQuery = jest.fn();
   return {
     getPool: () => ({ query: mockQuery }),
@@ -10,7 +10,7 @@ jest.mock('../../database/database', () => {
   };
 });
 
-const { __mockQuery } = require('../../database/database');
+const { __mockQuery } = require('../database/database');
 
 process.env.JWT_SECRET = 'test_secret';
 
