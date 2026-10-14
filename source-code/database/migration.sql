@@ -45,7 +45,21 @@ CREATE TABLE IF NOT EXISTS budgets (
     UNIQUE (user_id, category, month, year)
 );
 
--- 6. Index for performance
+-- 6. Create goals (savings goals) table
+CREATE TABLE IF NOT EXISTS goals (
+    id             SERIAL PRIMARY KEY,
+    user_id        INTEGER       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title          TEXT          NOT NULL,
+    category       TEXT          DEFAULT NULL,
+    target_amount  NUMERIC(15,2) NOT NULL,
+    current_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    deadline       DATE          DEFAULT NULL,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- 7. Index for performance
 CREATE INDEX IF NOT EXISTS idx_expenses_user_id   ON expenses(user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_date      ON expenses(expense_date DESC);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets(user_id, month, year);
+CREATE INDEX IF NOT EXISTS idx_goals_user_id      ON goals(user_id);
