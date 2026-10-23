@@ -6,7 +6,7 @@
    - Offline fallback for navigation
    ================================================================ */
 
-const CACHE_VERSION = 'v4.1.0';
+const CACHE_VERSION = 'v4.1.3';
 const SHELL_CACHE   = `shell-${CACHE_VERSION}`;
 const DATA_CACHE    = `data-${CACHE_VERSION}`;
 
@@ -58,7 +58,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Shell assets → Cache First
+  // Shell assets → Network First để cập nhật tức thì khi có mạng, offline fallback về cache
   if (
     url.pathname === '/' ||
     url.pathname.endsWith('.html') ||
@@ -67,7 +67,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.json') ||
     url.pathname.endsWith('.ico')
   ) {
-    event.respondWith(cacheFirst(request, SHELL_CACHE));
+    event.respondWith(networkFirst(request, SHELL_CACHE));
     return;
   }
 
