@@ -20,10 +20,17 @@ const CURRENCY_SYMBOLS = {
   VND: '₫', USD: '$', EUR: '€', JPY: '¥', CNY: '¥', SGD: 'S$', KRW: '₩', THB: '฿'
 };
 
-function formatAmount(amount, currency = 'VND') {
+function formatAmount(amount, currency = 'VND', maxDecimals) {
   const sym = CURRENCY_SYMBOLS[currency] || currency;
-  if (currency === 'VND') return Number(amount).toLocaleString('vi-VN') + ' ' + sym;
-  return sym + Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const num = Number(amount) || 0;
+  if (currency === 'VND') {
+    const opts = maxDecimals !== undefined ? { maximumFractionDigits: maxDecimals } : {};
+    return num.toLocaleString('vi-VN', opts) + ' ' + sym;
+  }
+  const opts = maxDecimals !== undefined
+    ? { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  return sym + num.toLocaleString('en-US', opts);
 }
 
 function getCommonCurrency(items) {
@@ -246,12 +253,13 @@ function renderDashboard() {
     })
     .reduce((s, x) => s + Number(x.amount), 0);
   const count = allExpenses.length;
-  const avg   = count ? total / count : 0;
+  const avgK  = count ? (total / count) / 1000 : 0;
 
   document.getElementById('stat-total').textContent = formatAmount(total, 'VND');
   document.getElementById('stat-month').textContent = formatAmount(monthly, 'VND');
   document.getElementById('stat-count').textContent = count;
-  document.getElementById('stat-avg').textContent   = formatAmount(avg, 'VND');
+  document.getElementById('stat-avg').textContent   =
+    avgK.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }) + ' đ';
   document.getElementById('stat-month-label').textContent =
     `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
 
